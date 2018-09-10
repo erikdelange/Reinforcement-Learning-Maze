@@ -4,7 +4,6 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from keras.layers import Dense
-from keras.layers.advanced_activations import PReLU
 from keras.models import Sequential, model_from_json
 
 CELL_EMPTY = 0  # indicates empty cell where the agent can move to
@@ -69,7 +68,7 @@ class Maze:
         self.empty.remove(exit_cell)
         self.reset(start_cell)
 
-    def reset(self, start_cell):
+    def reset(self, start_cell=(0, 0)):
         """ Reset the maze to its initial state and place the agent at start_cell.
 
         :param tuple start_cell: Cell where the agent will start its journey through the maze.
@@ -211,33 +210,52 @@ class Maze:
 
 
 class Experience:
-    def __init__(self, model, max_memory=100, discount=0.95):
+    def __init__(self, model, max_memory=1000, discount=0.9):
+        """ Store game transitions (from state s to s') and update Q's. Use this to train the model on.
+
+        :param model: A Keras NN model.
+        :param int max_memory: How many consecutive game transitions to store.
+        :param float discount: How important are future rewards (0 = not at all, 1 = only)
+        """
         self.model = model
         self.discount = discount
-        self.memory = list()  # list with 'max_memory' episodes
+        self.memory = list()
         self.max_memory = max_memory
-        self.num_actions = model.output_shape[-1]
 
-    def remember(self, episode):
-        """ Add episode (=[state, move, reward, next_state, status]) to the end of the memory list.
+    def remember(self, transition):
+        """ Add an game transition to the end of the memory list.
+
+        :param list transition: [state, move, reward, next_state, status]
         """
-        self.memory.append(episode)
+        self.memory.append(transition)
         if len(self.memory) > self.max_memory:
-            del self.memory[0]
+            del self.memory[0]  # forget the oldest memories
 
     def predict(self, state):
+        """ Predict Q vector belonging to this state.
+
+        :param list state: A game state.
+        :return: Vector with Q's per action.
+        """
         return self.model.predict(state)[0]
 
-    def get_samples(self, sample_size=10):
-        state_size = self.memory[0][0].size  # number of cells in maze
+    def get_samples(self, sample_size=25):
+        """ Retrieve a number of random observed game states and the corresponding Q target vectors.
+
+        :param int sample_size: The number of states to return
+        :return: input and target vectors
+        """
         mem_size = len(self.memory)  # how many episodes are currently stored
         sample_size = min(mem_size, sample_size)  # cannot take more samples then available in memory
+        state_size = self.memory[0][0].size  # number of cells in maze
+        num_actions = self.model.output_shape[-1]  # number of actions based in output layer
 
         states = np.zeros((sample_size, state_size))
-        targets = np.zeros((sample_size, self.num_actions))
+        targets = np.zeros((sample_size, num_actions))
 
-        for i, j in enumerate(np.random.choice(range(mem_size), sample_size, replace=False)):
-            state, move, reward, next_state, status = self.memory[j]
+        for i, idx in enumerate(np.random.choice(range(mem_size), sample_size, replace=False)):
+            state, move, reward, next_state, status = self.memory[idx]
+
             states[i] = state
             targets[i] = self.predict(state)
 
@@ -255,13 +273,8 @@ class DeepQNetwork:
 
         if load is False:
             self.model = Sequential()
-            # layer 1: equal number of output- and input neurons (= the number of cells in maze)
-            self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,)))
-            self.model.add(PReLU())
-            # layer 2: as many output neurons as there are cells in maze (inputs equal layer 1)
-            self.model.add(Dense(game.maze.size))
-            self.model.add(PReLU())
-            # layer 3: as many output neurons as there are moves
+            self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="relu"))
+            self.model.add(Dense(game.maze.size, activation="relu"))
             self.model.add(Dense(len(actions)))
         else:
             self.load(modelname)
@@ -279,9 +292,8 @@ class DeepQNetwork:
         self.model.load_weights(filename + ".h5")
 
     def train(self, **kwargs):
-        epsilon = 0.1
-        epochs = kwargs.get("epochs", 10000)
-        max_memory = kwargs.get("max_memory", 1000)
+        epsilon = 0.1  # exploration vs exploitation (0 = only exploit, 1 = only explore)
+        episodes = kwargs.get("episodes", 10000)
         sample_size = kwargs.get("sample_size", 50)
         load_weights = kwargs.get("load_weights", False)
         modelname = kwargs.get("modelname", "model")
@@ -289,20 +301,24 @@ class DeepQNetwork:
         if load_weights:
             self.model.load_weights(modelname + ".h5")
 
-        experience = Experience(self.model, max_memory=max_memory)
+        experience = Experience(self.model, max_memory=1000)
 
+        wins = 0
         win_history = list()
-        history_size = self.game.maze.size // 2
+        history_size = episodes // 10
         win_rate = 0.0
 
-        for epoch in range(1, epochs):
+        epsilons = np.geomspace(0.95, 0.05, episodes)
+
+        for episode in range(episodes):
             loss = 0.0
+            epsilon = epsilons[episode]  # start with a lot of exploration, and change to more exploitation
+
             start_cell = random.choice(self.game.empty)
             self.game.reset(start_cell)
 
             state = self.game.observe()
 
-            episode = 0
             while True:
                 possible_actions = self.game.possible_actions()
                 if not possible_actions:
@@ -318,37 +334,30 @@ class DeepQNetwork:
 
                 if status in ("win", "lose"):
                     if status == "win":
+                        wins += 1
                         win_history.append(1)
                     else:
                         win_history.append(0)
                     break
 
                 experience.remember([previous_state, action, reward, state, status])
-                episode += 1
 
                 inputs, targets = experience.get_samples(sample_size=sample_size)
 
-                h = self.model.fit(
-                    inputs,
-                    targets,
-                    epochs=8,
-                    batch_size=16,
-                    verbose=0,
-                )
-                loss = self.model.evaluate(inputs, targets, verbose=0)
+                loss = self.model.train_on_batch(inputs, targets)
+                # h = self.model.fit(inputs,
+                #                    targets,
+                #                    epochs=8,
+                #                    batch_size=16,
+                #                    verbose=0)
+                # loss = self.model.evaluate(inputs, targets, verbose=0)
 
+            # calculate win rate over the last x games
             if len(win_history) > history_size:
                 win_rate = sum(win_history[-history_size:]) / history_size
-                if win_rate > 0.9:
-                    epsilon = 0.05
 
-            logging.info("epoch: {:5d}/{:5d} | loss: {:.4f} | episodes: {:03d} | win count: {:03d} | win rate: {:.3f}"
-                         .format(epoch, epochs, loss, episode, sum(win_history), win_rate))
-
-            # check if training has exhausted all empty cells and if in all cases the agent won
-            if win_rate == 1 and self.completion_check():
-                logging.info("reached 100% win rate at epoch: {}".format(epoch))
-                break
+            logging.info("episode: {:5d}/{:5d} | loss: {:.4f} | win count: {:03d} | win rate: {:.3f}"
+                         .format(episode, episodes, loss, wins, win_rate))
 
         self.save(modelname)  # Save trained models weights and architecture
 
@@ -373,19 +382,10 @@ class DeepQNetwork:
             if status in ("win", "lose"):
                 return status
 
-    def completion_check(self):
-        """ Play game for every possible start_location. If won for every start_location return True. """
-        for cell in self.game.empty:
-            if not self.game.possible_actions(cell):
-                return False
-            if self.play(cell) == "lose":
-                return False
-        return True
-
 
 class QNetwork:
     def __init__(self, game):
-        """ Create and use a simple neural network for Q learning.
+        """ A simple neural network for Q-learning.
 
         The network learns the Q values for each action in each state. In the model the state is represented as a
         vector which maps to Q values.
@@ -395,14 +395,12 @@ class QNetwork:
         self.game = game
 
         self.model = Sequential()
-        self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,)))
-        self.model.add(PReLU())
-        self.model.add(Dense(game.maze.size))
-        self.model.add(PReLU())
+        self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="relu"))
+        self.model.add(Dense(game.maze.size, activation="relu"))
         self.model.add(Dense(len(actions)))
         self.model.compile(optimizer="adam", loss="mse")
 
-    def train(self):
+    def train(self, **kwargs):
         """ Tune the Q network by playing a number of games (called episodes).
 
         Dependent on epsilon, take a random action or base the action on the current Q network. Update the
@@ -410,8 +408,8 @@ class QNetwork:
         """
         # hyperparameters
         epsilon = 0.1  # exploration vs exploitation (0 = only exploit, 1 = only explore)
-        discount = 0.9  # importance of future rewards (0 = not at all, 1 = only)
-        episodes = 500  # number of training games to play
+        discount = 0.9  # (gamma) importance of future rewards (0 = not at all, 1 = only)
+        episodes = kwargs.get("episodes", 1000)  # number of training games to play
 
         wins = 0
 
@@ -441,7 +439,7 @@ class QNetwork:
                 target_vector = self.model.predict(state)
                 target_vector[0][action] = target  # update Q value for this action
 
-                h = self.model.fit(state, target_vector, epochs=1, verbose=0)
+                self.model.fit(state, target_vector, epochs=1, verbose=0)
 
                 if status in ("win", "lose"):
                     if status == "win":
@@ -504,16 +502,16 @@ class QTable:
                 state.flatten())  # convert [1][Z] array to a tuple of array[Z] so it can be used as dictionary key
             self.qtable[state] = [0, 0, 0, 0]  # 4 possible actions, initially all equally good/bad
 
-    def train(self):
+    def train(self, **kwargs):
         """ Tune the Q-table by playing a number of games (called episodes).
 
         Take a random action, of base the action on the current Q table. Update the Q table after each action.
         """
         # hyperparameters
         epsilon = 0.1  # exploration vs exploitation (0 = only exploit, 1 = only explore)
-        discount = 0.9  # importance of future rewards (0 = not at all, 1 = only)
-        learning_rate = 0.3  # speed of learning (0 = do not learn only exploit, 1 = only use most recent information)
-        episodes = 500  # number of training games to play
+        discount = 0.9  # (gamma) importance of future rewards (0 = not at all, 1 = only)
+        learning_rate = 0.3  # (alpha) speed of learning (0 = no learning, only exploit, 1 = only use most recent information)
+        episodes = kwargs.get("episodes", 1000)  # number of training games to play
 
         wins = 0
 
@@ -630,7 +628,7 @@ if __name__ == "__main__":
     if 1:
         game = Maze(maze)
         model = DeepQNetwork(game)
-        model.train(epochs=100, max_memory=8 * maze.size, sample_size=32)
+        model.train(episodes=300, max_memory=8 * maze.size)
         game.show()
         model.play(start_cell=(0, 0))
         model.play(start_cell=(0, 4))
@@ -647,7 +645,7 @@ if __name__ == "__main__":
     if 0:
         game = Maze(maze)
         model = QNetwork(game)
-        model.train()
+        model.train(episodes=500)
         model.play(start_cell=(0, 0))
         model.play(start_cell=(0, 4))
         model.play(start_cell=(3, 7))
@@ -655,7 +653,7 @@ if __name__ == "__main__":
     if 0:
         game = Maze(maze)
         model = QTable(game)
-        model.train()
+        model.train(episodes=500)
         model.play(start_cell=(0, 0))
         model.play(start_cell=(0, 4))
         model.play(start_cell=(3, 7))
