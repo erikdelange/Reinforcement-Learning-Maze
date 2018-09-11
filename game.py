@@ -28,15 +28,15 @@ class Maze:
     """ A maze with walls. An agent is placed at the start cell and needs to move through the maze to reach the exit cell.
 
     An agent begins its journey at start_cell. The agent can execute moves (up/down/left/right) in the maze in order
-    to reach the exit_cell. Every move results in a reward/penalty which are accumulated during the game. Every move
-    gives a small penalty, returning to a cell the agent visited before a bigger penalty and running into a wall a
+    to reach the exit_cell. Every move results in a reward/penalty which is accumulated during the game. Every move
+    gives a small penalty, returning to a cell the agent visited earlier a bigger penalty and running into a wall a
     large penalty. The reward is only collected when reaching the exit. The game always has a terminal state; in
-    the end you win or lose. You lose if you have collected a large number of penalties (then the agent is
+    the end you win or lose. You lose if you have collected a large number of penalties; then the agent is
     assumed to wander around cluelessly.
 
     Cell coordinates:
     The cells in the maze are stored as (col, row) or (x, y) tuples. (0, 0) is the upper left corner of the maze. This
-    way of storing coordinates is in line with what the plot() function expects.
+    way of storing coordinates is in line with what the plot() function expects as inputs.
     The maze itself is stored as a 2D array so cells are accessed via [row, col]. To convert a (col, row) tuple to
     (row, col) use: (col, row)[::-1] -> (row, col)
     """
@@ -44,13 +44,13 @@ class Maze:
     def __init__(self, maze, start_cell=(0, 0), exit_cell=None):
         """ Create a new maze with a specific start- and exit cell.
 
-        :param numpy.array maze: 2D Array containing empty cells and cells occupied with walls.
+        :param numpy.array maze: 2D Array containing empty cells (=0) and cells occupied with walls (=1).
         :param tuple start_cell: Starting cell for the agent in the maze (optional, else upper left).
         :param tuple exit_cell: Exit cell which the agent has to reach (optional, else lower right).
         """
         self.maze = maze
-        self.display = False  # draw moves or not
-        self.minimum_reward = -0.25 * self.maze.size
+        self.display = False  # draw grid and moves or not
+        self.minimum_reward = -0.5 * self.maze.size  # stop game if accumulated reward is below this number
 
         nrows, ncols = self.maze.shape
         exit_cell = (ncols - 1, nrows - 1) if exit_cell is None else exit_cell
@@ -160,7 +160,7 @@ class Maze:
         return reward
 
     def possible_actions(self, cell=None):
-        """ Create a list with possible actions.
+        """ Create a list with possible actions (taking into account the maze's edges and walls).
 
         :param tuple cell: Location of the agent (optional, else current cell).
         :return list: All possible actions.
@@ -172,7 +172,7 @@ class Maze:
 
         possible_actions = [MOVE_LEFT, MOVE_RIGHT, MOVE_UP, MOVE_DOWN]  # initially allow all
 
-        # now restrict the initial list
+        # now restrict the initial list by removing impossible actions
         nrows, ncols = self.maze.shape
         if row == 0 or (row > 0 and self.maze[row - 1, col] == CELL_OCCUPIED):
             possible_actions.remove(MOVE_UP)
@@ -199,7 +199,7 @@ class Maze:
         return "playing"
 
     def observe(self):
-        """ Create a 1*Z copy of the maze (Z = total cell count in the maze), including the agents current location.
+        """ Create a [1][Z] copy of the maze (Z = total cell count in the maze), including the agents current location.
 
         :return numpy.array [1][size]: Maze content as an array of 1*total_cells_in_array.
         """
@@ -210,8 +210,10 @@ class Maze:
 
 
 class Experience:
+    """ Store game transitions (from state s to s') and update Q's. Replay these to train the model. """
+
     def __init__(self, model, max_memory=1000, discount=0.9):
-        """ Store game transitions (from state s to s') and update Q's. Use this to train the model on.
+        """ Create the replay memory.
 
         :param model: A Keras NN model.
         :param int max_memory: How many consecutive game transitions to store.
@@ -223,7 +225,7 @@ class Experience:
         self.max_memory = max_memory
 
     def remember(self, transition):
-        """ Add an game transition to the end of the memory list.
+        """ Add a game transition at the end of the memory list.
 
         :param list transition: [state, move, reward, next_state, status]
         """
@@ -232,14 +234,14 @@ class Experience:
             del self.memory[0]  # forget the oldest memories
 
     def predict(self, state):
-        """ Predict Q vector belonging to this state.
+        """ Predict the Q vector belonging to this state.
 
         :param list state: A game state.
         :return: Vector with Q's per action.
         """
-        return self.model.predict(state)[0]
+        return self.model.predict(state)[0]  # prediction is a [1][num_actions] array with Q's
 
-    def get_samples(self, sample_size=25):
+    def get_samples(self, sample_size=10):
         """ Retrieve a number of random observed game states and the corresponding Q target vectors.
 
         :param int sample_size: The number of states to return
@@ -250,9 +252,10 @@ class Experience:
         state_size = self.memory[0][0].size  # number of cells in maze
         num_actions = self.model.output_shape[-1]  # number of actions based in output layer
 
-        states = np.zeros((sample_size, state_size))
-        targets = np.zeros((sample_size, num_actions))
+        states = np.zeros((sample_size, state_size), dtype=int)
+        targets = np.zeros((sample_size, num_actions), dtype=float)
 
+        # update the Q's as in the QTable class
         for i, idx in enumerate(np.random.choice(range(mem_size), sample_size, replace=False)):
             state, move, reward, next_state, status = self.memory[idx]
 
@@ -292,27 +295,21 @@ class DeepQNetwork:
         self.model.load_weights(filename + ".h5")
 
     def train(self, **kwargs):
-        epsilon = 0.1  # exploration vs exploitation (0 = only exploit, 1 = only explore)
+        epsilon = 0.2  # exploration vs exploitation (0 = only exploit, 1 = only explore)
         episodes = kwargs.get("episodes", 10000)
-        sample_size = kwargs.get("sample_size", 50)
+        sample_size = kwargs.get("sample_size", 10)
         load_weights = kwargs.get("load_weights", False)
         modelname = kwargs.get("modelname", "model")
 
         if load_weights:
             self.model.load_weights(modelname + ".h5")
 
-        experience = Experience(self.model, max_memory=1000)
+        experience = Experience(self.model, discount=0.5)
 
         wins = 0
-        win_history = list()
-        history_size = episodes // 10
-        win_rate = 0.0
 
-        epsilons = np.geomspace(0.95, 0.05, episodes)
-
-        for episode in range(episodes):
+        for episode in range(1, episodes):
             loss = 0.0
-            epsilon = epsilons[episode]  # start with a lot of exploration, and change to more exploitation
 
             start_cell = random.choice(self.game.empty)
             self.game.reset(start_cell)
@@ -324,40 +321,44 @@ class DeepQNetwork:
                 if not possible_actions:
                     status = "blocked"
                     break
-                previous_state = state
                 if np.random.random() < epsilon:
                     action = random.choice(possible_actions)
                 else:
-                    action = np.argmax(experience.predict(previous_state))
+                    action = np.argmax(experience.predict(state))
 
-                state, reward, status = self.game.move(action)
+                next_state, reward, status = self.game.move(action)
+
+                experience.remember([state, action, reward, next_state, status])
 
                 if status in ("win", "lose"):
                     if status == "win":
                         wins += 1
-                        win_history.append(1)
-                    else:
-                        win_history.append(0)
                     break
-
-                experience.remember([previous_state, action, reward, state, status])
 
                 inputs, targets = experience.get_samples(sample_size=sample_size)
 
-                loss = self.model.train_on_batch(inputs, targets)
-                # h = self.model.fit(inputs,
-                #                    targets,
-                #                    epochs=8,
-                #                    batch_size=16,
-                #                    verbose=0)
-                # loss = self.model.evaluate(inputs, targets, verbose=0)
+                # loss = self.model.train_on_batch(inputs, targets)
+                h = self.model.fit(inputs,
+                                   targets,
+                                   epochs=8,
+                                   batch_size=16,
+                                   verbose=0)
+                loss = self.model.evaluate(inputs, targets, verbose=0)
 
-            # calculate win rate over the last x games
-            if len(win_history) > history_size:
-                win_rate = sum(win_history[-history_size:]) / history_size
+                state = next_state
 
-            logging.info("episode: {:5d}/{:5d} | loss: {:.4f} | win count: {:03d} | win rate: {:.3f}"
-                         .format(episode, episodes, loss, wins, win_rate))
+            logging.info("episode: {:05d}/{:05d} | loss: {:.4f} | total wins: {:04d} ({:.2f})"
+                         .format(episode, episodes, loss, wins, wins / episodes))
+
+            # check if with current model we win from all starting cells
+            if episode > self.game.maze.size and ((episode % 25) == 0):
+                for cell in self.game.empty:
+                    if (self.play(start_cell=cell)) == "lose":
+                        break
+                else:
+                    # won in all cases
+                    logging.info("Won from all start cells, exit learning")
+                    break
 
         self.save(modelname)  # Save trained models weights and architecture
 
@@ -377,7 +378,7 @@ class DeepQNetwork:
             logging.debug("q = {} | max = {}".format(q, actions[action]))
             state, reward, status = self.game.move(action)
             if self.game.display:
-                logging.info("action: {:5s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
+                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
                 self.game.draw()
             if status in ("win", "lose"):
                 return status
@@ -448,8 +449,8 @@ class QNetwork:
 
                 state = next_state
 
-            logging.info("episode: {:4d} | status: {:4s} | total wins: {:4d} ({:.2f})"
-                         .format(episode, status, wins, wins / episode))
+            logging.info("episode: {:05d}/{:05d} | status: {:4s} | total wins: {:4d} ({:.2f})"
+                         .format(episode, episodes, status, wins, wins / episode))
 
     def play(self, start_cell=(0, 0)):
         """ Play a single game, choosing the next move based in the highest Q from the Q network.
@@ -468,7 +469,7 @@ class QNetwork:
             logging.debug("q = {} | max = {}".format(q, actions[action]))
             state, reward, status = self.game.move(action)
             if self.game.display:
-                logging.debug("action: {:5s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
+                logging.debug("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
                 self.game.draw()
             if status in ("win", "lose"):
                 return status
@@ -545,8 +546,8 @@ class QTable:
 
                 state = next_state
 
-                logging.info("episode: {:4d} | status: {:4s} | total wins: {:4d} ({:.2f})"
-                             .format(episode, status, wins, wins / episode))
+            logging.info("episode: {:04d}/{:05d} | status: {:4s} | total wins: {:4d} ({:.2f})"
+                         .format(episode, episodes, status, wins, wins / episode))
 
         # replace any initial zero still left for a nan (not-a-number)
         for key in self.qtable:
@@ -571,7 +572,7 @@ class QTable:
             state, reward, status = self.game.move(action)
             state = tuple(state.flatten())
             if self.game.display:
-                logging.info("action: {:5s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
+                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
                 self.game.draw()
             if status in ("win", "lose"):
                 return status
@@ -599,14 +600,14 @@ class Random:
             action = random.choice(possible_actions)
             state, reward, status = self.game.move(action)
             if self.game.display:
-                logging.info("action: {:5s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
+                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
                 self.game.draw()
             if status in ("win", "lose"):
                 return status
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, format="%(levelname)-8s: %(asctime)s: %(message)s",
+    logging.basicConfig(level=logging.INFO, format="%(levelname)-8s: %(asctime)s: %(message)s",
                         datefmt="%Y-%m-%d %H:%M:%S")
 
     maze = np.array([
@@ -625,10 +626,10 @@ if __name__ == "__main__":
         model = Random(game)
         model.play(start_cell=(0, 0))
 
-    if 1:
+    if 0:
         game = Maze(maze)
         model = DeepQNetwork(game)
-        model.train(episodes=300, max_memory=8 * maze.size)
+        model.train(episodes=maze.size * 10, max_memory=maze.size * 8)
         game.show()
         model.play(start_cell=(0, 0))
         model.play(start_cell=(0, 4))
@@ -650,7 +651,7 @@ if __name__ == "__main__":
         model.play(start_cell=(0, 4))
         model.play(start_cell=(3, 7))
 
-    if 0:
+    if 1:
         game = Maze(maze)
         model = QTable(game)
         model.train(episodes=500)
