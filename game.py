@@ -208,8 +208,28 @@ class Maze:
         state[row, col] = CELL_CURRENT  # indicate the agents current location
         return state.reshape((1, -1))
 
+    def play(self, model, start_cell=(0, 0)):
+        """ Play a single game, choosing the next move based a prediction from the model.
 
-class Experience:
+        :param model: The prediction model to use.
+        :param tuple start_cell: Agents initial cell (optional, else upper left).
+        :return str: "win" or "lose"
+        """
+        self.reset(start_cell)
+
+        state = self.observe()
+
+        while True:
+            action = model.predict(state)
+            state, reward, status = self.move(action)
+            if self.display:
+                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
+                self.draw()
+            if status in ("win", "lose"):
+                return status
+
+
+class ExperienceReplay:
     """ Store game transitions (from state s to s') and update Q's. Replay these to train the model. """
 
     def __init__(self, model, max_memory=1000, discount=0.9):
@@ -236,8 +256,8 @@ class Experience:
     def predict(self, state):
         """ Predict the Q vector belonging to this state.
 
-        :param list state: A game state.
-        :return: Vector with Q's per action.
+        :param np.array state: A game state.
+        :return: np.array with Q's per action.
         """
         return self.model.predict(state)[0]  # prediction is a [1][num_actions] array with Q's
 
@@ -245,7 +265,7 @@ class Experience:
         """ Retrieve a number of random observed game states and the corresponding Q target vectors.
 
         :param int sample_size: The number of states to return
-        :return: input and target vectors
+        :return: input and target vectors (as np.array)
         """
         mem_size = len(self.memory)  # how many episodes are currently stored
         sample_size = min(mem_size, sample_size)  # cannot take more samples then available in memory
@@ -255,7 +275,7 @@ class Experience:
         states = np.zeros((sample_size, state_size), dtype=int)
         targets = np.zeros((sample_size, num_actions), dtype=float)
 
-        # update the Q's as in the QTable class
+        # update the Q's using the Bellman equation
         for i, idx in enumerate(np.random.choice(range(mem_size), sample_size, replace=False)):
             state, move, reward, next_state, status = self.memory[idx]
 
@@ -285,16 +305,22 @@ class DeepQNetwork:
         self.model.compile(optimizer="adam", loss="mse")
 
     def save(self, filename):
+        """ Save a model plus weights. """
         with open(filename + ".json", "w") as outfile:
             outfile.write(self.model.to_json())
         self.model.save_weights(filename + ".h5", overwrite=True)
 
     def load(self, filename):
+        """ Load a model plus weights. """
         with open(filename + ".json", "r") as infile:
             self.model = model_from_json(infile.read())
         self.model.load_weights(filename + ".h5")
 
     def train(self, **kwargs):
+        """ Tune the Q network.
+
+        Takes a sample from previous action and fit the model on this sample.
+        """
         epsilon = 0.2  # exploration vs exploitation (0 = only exploit, 1 = only explore)
         episodes = kwargs.get("episodes", 10000)
         sample_size = kwargs.get("sample_size", 10)
@@ -304,7 +330,7 @@ class DeepQNetwork:
         if load_weights:
             self.model.load_weights(modelname + ".h5")
 
-        experience = Experience(self.model, discount=0.5)
+        experience = ExperienceReplay(self.model, discount=0.5)
 
         wins = 0
 
@@ -353,7 +379,7 @@ class DeepQNetwork:
             # check if with current model we win from all starting cells
             if episode > self.game.maze.size and ((episode % 25) == 0):
                 for cell in self.game.empty:
-                    if (self.play(start_cell=cell)) == "lose":
+                    if (self.game.play(self, start_cell=cell)) == "lose":
                         break
                 else:
                     # won in all cases
@@ -362,26 +388,16 @@ class DeepQNetwork:
 
         self.save(modelname)  # Save trained models weights and architecture
 
-    def play(self, start_cell=(0, 0)):
-        """ Play a single game, choosing the next move based in the highest Q from the Q network.
+    def predict(self, state):
+        """ Choose the next move based in the highest Q from the Q network.
 
-        :param tuple start_cell: Agents initial cell (optional, else upper left).
-        :return str: "win" or "lose"
+        :param np.array state: A game state.
+        :return str: The action.
         """
-        self.game.reset(start_cell)
-
-        state = self.game.observe()
-
-        while True:
-            q = self.model.predict(state)
-            action = int(np.argmax(q[0]))
-            logging.debug("q = {} | max = {}".format(q, actions[action]))
-            state, reward, status = self.game.move(action)
-            if self.game.display:
-                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
-                self.game.draw()
-            if status in ("win", "lose"):
-                return status
+        q = self.model.predict(state)
+        action = int(np.argmax(q[0]))
+        logging.debug("q = {} | max = {}".format(q, actions[action]))
+        return action
 
 
 class QNetwork:
@@ -405,7 +421,7 @@ class QNetwork:
         """ Tune the Q network by playing a number of games (called episodes).
 
         Dependent on epsilon, take a random action or base the action on the current Q network. Update the
-        Q network after every action.
+        Q network after every action using the Bellman equation.
         """
         # hyperparameters
         epsilon = 0.1  # exploration vs exploitation (0 = only exploit, 1 = only explore)
@@ -452,27 +468,16 @@ class QNetwork:
             logging.info("episode: {:05d}/{:05d} | status: {:4s} | total wins: {:4d} ({:.2f})"
                          .format(episode, episodes, status, wins, wins / episode))
 
-    def play(self, start_cell=(0, 0)):
-        """ Play a single game, choosing the next move based in the highest Q from the Q network.
+    def predict(self, state):
+        """ Choose the next move based in the highest Q from the Q network.
 
-        :param tuple start_cell: Agents initial cell (optional, else upper left).
-        :return str: "win" or "lose"
+        :param np.array state: A game state.
+        :return str: The action.
         """
-        self.game.show()
-        self.game.reset(start_cell)
-
-        state = self.game.observe()
-
-        while True:
-            q = self.model.predict(state)
-            action = int(np.argmax(q[0]))
-            logging.debug("q = {} | max = {}".format(q, actions[action]))
-            state, reward, status = self.game.move(action)
-            if self.game.display:
-                logging.debug("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
-                self.game.draw()
-            if status in ("win", "lose"):
-                return status
+        q = self.model.predict(state)
+        action = int(np.argmax(q[0]))
+        logging.debug("q = {} | max = {}".format(q, actions[action]))
+        return action
 
 
 class QTable:
@@ -506,7 +511,8 @@ class QTable:
     def train(self, **kwargs):
         """ Tune the Q-table by playing a number of games (called episodes).
 
-        Take a random action, of base the action on the current Q table. Update the Q table after each action.
+        Take a random action, of base the action on the current Q table. Update the Q table after each action
+        using the Bellman equation.
         """
         # hyperparameters
         epsilon = 0.1  # exploration vs exploitation (0 = only exploit, 1 = only explore)
@@ -553,29 +559,17 @@ class QTable:
         for key in self.qtable:
             self.qtable[key] = [np.nan if q == 0 else q for q in self.qtable[key]]
 
-    def play(self, start_cell=(0, 0)):
-        """ Play a single game, choosing the next move based in the highest Q from the Q-table.
+    def predict(self, state):
+        """ Choose the next move based in the highest Q from the Q-table.
 
-        :param tuple start_cell: Agents initial cell (optional, else upper left).
-        :return str: "win" or "lose"
+        :param np.array state: A game state.
+        :return str: The action.
         """
-        self.game.show()
-        self.game.reset(start_cell)
-
-        state = self.game.observe()
         state = tuple(state.flatten())
-
-        while True:
-            q = self.qtable[state]
-            action = int(np.nanargmax(q))  # action is the index of the highest Q value
-            logging.debug("q = {} | max = {}".format(q, actions[action]))
-            state, reward, status = self.game.move(action)
-            state = tuple(state.flatten())
-            if self.game.display:
-                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
-                self.game.draw()
-            if status in ("win", "lose"):
-                return status
+        q = self.qtable[state]
+        action = int(np.nanargmax(q))  # action is the index of the highest Q value
+        logging.debug("q = {} | max = {}".format(q, actions[action]))
+        return action
 
 
 class Random:
@@ -584,26 +578,17 @@ class Random:
     def __init__(self, game):
         self.game = game
 
-    def play(self, start_cell=(0, 0)):
-        """ Play a single game, choosing the next move randomly.
+    def predict(self, state):
+        """ Choose the next move randomly.
 
-        :param tuple start_cell: Agents initial cell (optional, else upper left).
-        :return str: "win" or "lose"
+        :param np.array state: A game state.
+        :return int: The action or None if no action is possible.
         """
-        self.game.show()
-        self.game.reset(start_cell)
-
-        while True:
-            possible_actions = self.game.possible_actions()
-            if not possible_actions:
-                break
-            action = random.choice(possible_actions)
-            state, reward, status = self.game.move(action)
-            if self.game.display:
-                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
-                self.game.draw()
-            if status in ("win", "lose"):
-                return status
+        possible_actions = self.game.possible_actions()
+        if not possible_actions:
+            return None
+        else:
+            return random.choice(possible_actions)
 
 
 if __name__ == "__main__":
@@ -624,39 +609,42 @@ if __name__ == "__main__":
     if 0:
         game = Maze(maze)
         model = Random(game)
-        model.play(start_cell=(0, 0))
-
-    if 0:
-        game = Maze(maze)
-        model = DeepQNetwork(game)
-        model.train(episodes=maze.size * 10, max_memory=maze.size * 8)
         game.show()
-        model.play(start_cell=(0, 0))
-        model.play(start_cell=(0, 4))
-        model.play(start_cell=(3, 7))
-
-    if 0:
-        game = Maze(maze)
-        model = DeepQNetwork(game, modelname="maze", load=True)
-        game.show()
-        model.play(start_cell=(0, 0))
-        model.play(start_cell=(0, 4))
-        model.play(start_cell=(3, 7))
-
-    if 0:
-        game = Maze(maze)
-        model = QNetwork(game)
-        model.train(episodes=500)
-        model.play(start_cell=(0, 0))
-        model.play(start_cell=(0, 4))
-        model.play(start_cell=(3, 7))
+        game.play(model, start_cell=(0, 0))
 
     if 1:
         game = Maze(maze)
         model = QTable(game)
         model.train(episodes=500)
-        model.play(start_cell=(0, 0))
-        model.play(start_cell=(0, 4))
-        model.play(start_cell=(3, 7))
+        game.show()
+        game.play(model, start_cell=(0, 0))
+        game.play(model, start_cell=(0, 4))
+        game.play(model, start_cell=(3, 7))
+
+    if 0:
+        game = Maze(maze)
+        model = QNetwork(game)
+        model.train(episodes=100)
+        game.show()
+        game.play(model, start_cell=(0, 0))
+        game.play(model, start_cell=(0, 4))
+        game.play(model, start_cell=(3, 7))
+
+    if 0:
+        game = Maze(maze)
+        model = DeepQNetwork(game)
+        model.train(episodes=maze.size * 10, max_memory=maze.size * 8, modelname="test")
+        game.show()
+        game.play(model, start_cell=(0, 0))
+        game.play(model, start_cell=(0, 4))
+        game.play(model, start_cell=(3, 7))
+
+    if 0:
+        game = Maze(maze)
+        model = DeepQNetwork(game, load=True)
+        game.show()
+        game.play(model, start_cell=(0, 0))
+        game.play(model, start_cell=(0, 4))
+        game.play(model, start_cell=(3, 7))
 
     plt.show()  # must be here else the image disappears immediately at the end of the program
