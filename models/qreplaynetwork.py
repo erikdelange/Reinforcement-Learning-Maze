@@ -174,8 +174,8 @@ class QReplayNetworkModel(AbstractModel):
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.
 
-        :param np.array state: Game state.
-        :return int: Chosen action.
+            :param np.array state: Game state.
+            :return int: Chosen action.
         """
         q = self.model.predict(state)
         return np.argmax(q[0])

@@ -12,6 +12,6 @@ class RandomModel(AbstractModel):
     def predict(self, **kwargs):
         """ Randomly choose the next action.
 
-        :return int: Chosen action.
+            :return int: Chosen action.
         """
         return random.choice(self.environment.actions)

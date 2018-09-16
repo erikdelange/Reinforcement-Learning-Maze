@@ -86,8 +86,8 @@ class QTableModel(AbstractModel):
     def predict(self, state):
         """ Choose the action with the highest Q from the Q-table.
 
-        :param np.array state: Game state (= index in the Q table).
-        :return int: Chosen action.
+            :param np.array state: Game state (= index in the Q table).
+            :return int: Chosen action.
         """
         state = tuple(state.flatten())
         q = self.qtable[state]

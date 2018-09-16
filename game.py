@@ -22,29 +22,29 @@ actions = {
 
 
 class Maze:
-    """ A maze with walls. An agent is placed at the start cell and needs to move through the maze to reach the exit cell.
+    """ A maze with walls. An agent is placed at the start cell and moves through the maze to get to the exit cell.
 
-    The maze is the environment in which an agent is placed at start_cell. The agent chooses actions (move left/right/
-    up/down) in order to reach the exit_cell. Every action results in a reward/penalty which is accumulated during the
-    game. Every move gives a small penalty (-0.04), returning to a cell the agent visited earlier a bigger penalty
-    (-0.25) and running into a wall a large penalty (-0.75). A large reward (+1)is collected when reaching the exit.
-    The game always reaches a terminal state; the agent wins or looses. Reaching is the exit means winning. If the
-    penalties the agent has collected during play exceed a threshold the agent is assumed to wander around cluelessly
-    and looses.
+        The maze is the environment in which an agent is placed at start_cell. The agent chooses actions
+        (move left/right/up/down) in order to reach the exit_cell. Every action results in a reward/penalty which is
+        accumulated during the game. Every move gives a small penalty (-0.04), returning to a cell the agent visited
+        earlier a bigger penalty(-0.25) and running into a wall a large penalty (-0.75). A large reward (+1)is
+        collected when reaching the exit. The game always reaches a terminal state; the agent wins or looses.
+        Reaching the exit means winning. If the penalties the agent has collected during play exceed a threshold
+        the agent is assumed to wander around cluelessly and looses.
 
-    A note in cell coordinates:
-    The cells in the maze are stored as (col, row) or (x, y) tuples. (0, 0) is the upper left corner of the maze. This
-    way of storing coordinates is in line with what the plot() function expects as inputs.
-    The maze itself is stored as a 2D array so cells are accessed via [row, col]. To convert a (col, row) tuple to
-    (row, col) use: (col, row)[::-1]
+        A note in cell coordinates:
+        The cells in the maze are stored as (col, row) or (x, y) tuples. (0, 0) is the upper left corner of the maze.
+        This way of storing coordinates is in line with what the plot() function expects as inputs. The maze itself
+        is stored as a 2D array so cells are accessed via [row, col]. To convert a (col, row) tuple
+        to (row, col) use: (col, row)[::-1]
     """
 
     def __init__(self, maze, start_cell=(0, 0), exit_cell=None):
         """ Create a new maze with a specific start- and exit-cell.
 
-        :param numpy.array maze: 2D Array containing empty cells (=0) and cells occupied with walls (=1).
-        :param tuple start_cell: Starting cell for the agent in the maze (optional, else upper left).
-        :param tuple exit_cell: Exit cell which the agent has to reach (optional, else lower right).
+            :param numpy.array maze: 2D Array containing empty cells (=0) and cells occupied with walls (=1).
+            :param tuple start_cell: Starting cell for the agent in the maze (optional, else upper left).
+            :param tuple exit_cell: Exit cell which the agent has to reach (optional, else lower right).
         """
         self.maze = maze
         self.display = False  # draw grid and moves or not
@@ -71,8 +71,8 @@ class Maze:
     def reset(self, start_cell=(0, 0)):
         """ Reset the maze to its initial state and place the agent at start_cell.
 
-        :param tuple start_cell: Cell where the agent starts its journey through the maze (optional, else upper left).
-        :return: New state after reset.
+            :param tuple start_cell: Cell where the agent starts its journey through the maze (optional, else upper left).
+            :return: New state after reset.
         """
         if start_cell not in self.cells:
             raise Exception("Error: start cell at {} is not inside maze".format(start_cell))
@@ -108,8 +108,8 @@ class Maze:
     def step(self, action):
         """ Move the agent according to action and return the new state, reward and game status.
 
-        :param int action: The agent will move in this direction.
-        :return: state, reward, status
+            :param int action: The agent will move in this direction.
+            :return: state, reward, status
         """
         reward = self.__execute(action)
         self.__total_reward += reward
@@ -120,8 +120,8 @@ class Maze:
     def __execute(self, action):
         """ Execute action and collect the reward/penalty.
 
-        :param int action: The agent will move in this direction.
-        :return float: Reward/penalty after the action is done.
+            :param int action: The agent will move in this direction.
+            :return float: Reward/penalty after the action is done.
         """
         possible_actions = self.__possible_actions(self.current_cell)
 
@@ -157,8 +157,8 @@ class Maze:
     def __possible_actions(self, cell=None):
         """ Create a list with possible actions taking into account the maze's edges and walls.
 
-        :param tuple cell: Location of the agent (optional, else current cell).
-        :return list: All possible actions.
+            :param tuple cell: Location of the agent (optional, else current cell).
+            :return list: All possible actions.
         """
         if cell is None:
             col, row = self.current_cell
@@ -184,7 +184,7 @@ class Maze:
     def __status(self):
         """ Determine the game status.
 
-        :return str: Current game status (win/lose/playing).
+            :return str: Current game status (win/lose/playing).
         """
         if self.current_cell == self.__exit_cell:
             return "win"
@@ -197,7 +197,7 @@ class Maze:
     def __observe(self):
         """ Create a [1][Z] copy of the maze (Z = total cell count in the maze), including the agents current location.
 
-        :return numpy.array [1][size]: Maze content as an array of 1*total_cells_in_array.
+            :return numpy.array [1][size]: Maze content as an array of 1*total_cells_in_array.
         """
         state = np.copy(self.maze)
         col, row = self.current_cell
@@ -207,9 +207,9 @@ class Maze:
     def play(self, model, start_cell=(0, 0)):
         """ Play a single game, choosing the next move based a prediction from the model.
 
-        :param model: The prediction model to use.
-        :param tuple start_cell: Agents initial cell (optional, else upper left).
-        :return str: "win" or "lose"
+            :param model: The prediction model to use.
+            :param tuple start_cell: Agents initial cell (optional, else upper left).
+            :return str: "win" or "lose"
         """
         self.reset(start_cell)
 
@@ -234,6 +234,7 @@ class Maze:
 
 
 if __name__ == "__main__":
+    from models import RandomModel, QTableModel, QNetworkModel, QReplayNetworkModel
 
     logging.basicConfig(level=logging.INFO,
                         format="%(levelname)-8s: %(asctime)s: %(message)s",
@@ -252,35 +253,23 @@ if __name__ == "__main__":
 
     game = Maze(maze)
 
-    # change the index to choose the model to use
-    test = ["random", "qtable", "qnetwork", "qreplay", "load"][3]
+    # change index to choose the model to use
+    index = 1
+    test = ["random", "qtable", "qnetwork", "qreplay", "load previous qreplay"][index]
 
     if test == "random":
-        from models import RandomModel
-
         model = RandomModel(game)
         model.train()
-
     elif test == "qtable":
-        from models import QTableModel
-
         model = QTableModel(game)
-        # print(timeit.timeit(stmt="model.train(episodes=500)", number=1, globals=globals()))
         model.train(episodes=500)
-
     elif test == "qnetwork":
-        from models import QNetworkModel
-
         model = QNetworkModel(game)
         model.train(episodes=500)
     elif test == "qreplay":
-        from models import QReplayNetworkModel
-
         model = QReplayNetworkModel(game)
         model.train(episodes=maze.size * 10, max_memory=maze.size * 8, modelname="test")
     else:
-        from models import QReplayNetworkModel
-
         model = QReplayNetworkModel(game, load=True)
 
     game.display = True
@@ -288,4 +277,4 @@ if __name__ == "__main__":
     game.play(model, start_cell=(2, 5))
     game.play(model, start_cell=(4, 1))
 
-    plt.show()  # must be here else the image disappears immediately at the end of the program
+    plt.show()  # must be placed here else the image disappears immediately at the end of the program
