@@ -15,6 +15,8 @@ Package *models* contains the following models:
 1. *QRandom* is the simplest model and just selects the next move randomly. It does not learn
 2. *QTable* uses a table which maps states to Q values. Q represents the quality of each action. These Q's are constantly refined during training.
 3. *QNetwork* is a simple neural network which learns the relation between a state and the corresponding Q's by playing lots of games.
-4. *QReplayNetwork* is a network which learns by replaying previous games. After learning it saves the model so this can be loaded for a next game (which does not need to learn). 
+4. *QReplayNetwork* is a network which learns by replaying previous games. After learning it saves the model so this can be loaded for a next game (which does not need to learn).
+
 ![](https://github.com/erikdelange/Reinforcement-Learning-Maze/blob/master/maze.png)
+
 Requires matplotlib, numpy, keras and tensorflow.
