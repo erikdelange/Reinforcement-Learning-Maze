@@ -1,4 +1,4 @@
-###Using various ways of reinforcement learning to escape from a maze.
+### Using various ways of reinforcement learning to escape from a maze.
 
 The maze is the environment in which an agent is placed somewhere. The agents goal is to reach the exit. 
 In order to get there the agent constantly chooses actions (move left/right/up/down). With every step
@@ -9,7 +9,7 @@ are based on Q-learning.
 This project demonstrates four different models to move through a maze. The main file is *game.py*. 
 Here the environment and agent are defined. Near the end of the file a maze is defined, a model is
 trained and then used to play a number of games starting from different positions in the maze. 
-During the play the agents moves are plotted.
+When playing the agents moves can be plotted.
 
 Package *models* contains the following models:
 1. *QRandom* is the simplest model and just selects the next move randomly. It does not learn
