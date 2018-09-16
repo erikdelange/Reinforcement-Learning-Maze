@@ -19,4 +19,4 @@ Package *models* contains the following models:
 
 Requires matplotlib, numpy, keras and tensorflow.
 
-![](https://github.com/erikdelange/Reinforcement-Learning-Maze/blob/master/ui.png)
+![](https://github.com/erikdelange/Reinforcement-Learning-Maze/blob/master/maze.png)
