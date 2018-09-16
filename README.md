@@ -9,7 +9,7 @@ are based on Q-learning.
 This project demonstrates four different models to move through a maze. The main file is *game.py*. 
 Here the environment and agent are defined. Near the end of the file a maze is defined, a model is
 trained and then used to play a number of games starting from different positions in the maze. 
-When playing the agents moves can be plotted.
+When playing the agents moves can be plotted (see the example below).
 
 Package *models* contains the following models:
 1. *QRandom* is the simplest model and just selects the next move randomly. It does not learn
