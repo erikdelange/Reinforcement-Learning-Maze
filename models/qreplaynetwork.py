@@ -1,5 +1,6 @@
 import logging
 import random
+from datetime import datetime
 
 import numpy as np
 from keras import Sequential
@@ -111,6 +112,7 @@ class QReplayNetworkModel(AbstractModel):
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword int episodes: number of training games to play
             :keyword int sample_size: number of samples to replay for training
+            :return int, datetime: number of training episodes, total time spent
         """
         discount = kwargs.get("discount", 0.90)
         exploration_rate = kwargs.get("exploration_rate", 0.10)
@@ -121,6 +123,7 @@ class QReplayNetworkModel(AbstractModel):
 
         wins = 0
         start_list = list()  # starting cells not yet used for training
+        start_time = datetime.now()
 
         for episode in range(1, episodes):
             if not start_list:
@@ -149,11 +152,11 @@ class QReplayNetworkModel(AbstractModel):
 
                 inputs, targets = experience.get_samples(sample_size=sample_size)
 
-                h = self.model.fit(inputs,
-                                   targets,
-                                   epochs=4,
-                                   batch_size=16,
-                                   verbose=0)
+                self.model.fit(inputs,
+                               targets,
+                               epochs=4,
+                               batch_size=16,
+                               verbose=0)
                 loss = self.model.evaluate(inputs, targets, verbose=0)
                 # loss = self.models.train_on_batch(inputs, targets)
 
@@ -163,13 +166,15 @@ class QReplayNetworkModel(AbstractModel):
                          .format(episode, episodes, loss, wins, wins / episodes))
 
             if episode % 10 == 0:
-                # check if current model wins from all starting cells
+                # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
                 if self.environment.win_all(self) is True:
-                    logging.info("Won from all start cells, exit learning")
+                    logging.info("Won from all start cells, stop learning")
                     break
 
         self.save(self.name)  # Save trained models weights and architecture
+
+        return episode, datetime.now() - start_time
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.

@@ -219,7 +219,7 @@ class Maze:
             action = model.predict(state=state)
             state, reward, status = self.step(action)
             if self.display:
-                logging.info("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
+                logging.debug("action: {:10s} | reward: {: .2f} | status: {}".format(actions[action], reward, status))
                 self.__draw()
             if status in ("win", "lose"):
                 return status
@@ -254,21 +254,25 @@ if __name__ == "__main__":
     game = Maze(maze)
 
     # change index to choose the model to use
-    index = 1
+    index = 2
     test = ["random", "qtable", "qnetwork", "qreplay", "load previous qreplay"][index]
 
     if test == "random":
         model = RandomModel(game)
-        model.train()
+        episodes, time = model.train()
     elif test == "qtable":
         model = QTableModel(game)
-        model.train(episodes=500)
+        episodes, time = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=500)
+        logging.info("episodes: {:05d} | time spent: {}".format(episodes, time))
     elif test == "qnetwork":
         model = QNetworkModel(game)
-        model.train(episodes=500)
+        episodes, time = model.train(discount=0.90, exploration_rate=0.10, episodes=500)
+        logging.info("episodes: {:05d} | time spent: {}".format(episodes, time))
     elif test == "qreplay":
         model = QReplayNetworkModel(game)
-        model.train(episodes=maze.size * 10, max_memory=maze.size * 8, modelname="test")
+        episodes, time = model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 10,
+                                     max_memory=maze.size * 8)
+        logging.info("episodes: {:05d} | time spent: {}".format(episodes, time))
     else:
         model = QReplayNetworkModel(game, load=True)
 

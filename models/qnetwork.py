@@ -1,5 +1,6 @@
 import logging
 import random
+from datetime import datetime
 
 import numpy as np
 from keras import Sequential
@@ -36,6 +37,7 @@ class QNetworkModel(AbstractModel):
             :keyword float discount: (gamma) preference for future rewards (0 = not at all, 1 = only)
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword int episodes: number of training games to play
+            :return int, datetime: number of training episodes, total time spent
         """
 
         discount = kwargs.get("discount", 0.90)
@@ -44,6 +46,7 @@ class QNetworkModel(AbstractModel):
 
         wins = 0
         start_list = list()  # starting cells not yet used for training
+        start_time = datetime.now()
 
         for episode in range(1, episodes):
             if not start_list:
@@ -52,6 +55,8 @@ class QNetworkModel(AbstractModel):
             start_list.remove(start_cell)
 
             state = self.environment.reset(start_cell)
+
+            loss = 0.0
 
             while True:
                 if np.random.random() < exploration_rate:
@@ -70,7 +75,7 @@ class QNetworkModel(AbstractModel):
                 target_vector[0][action] = target  # update Q value for this action
 
                 self.model.fit(state, target_vector, epochs=4, verbose=0)
-                # loss += self.models.evaluate(state, target_vector, verbose=0)
+                loss = self.model.evaluate(state, target_vector, verbose=0)
 
                 if status in ("win", "lose"):  # terminal state reached, stop episode
                     if status == "win":
@@ -79,15 +84,17 @@ class QNetworkModel(AbstractModel):
 
                 state = next_state
 
-            logging.info("episode: {:05d}/{:05d} | status: {:4s} | total wins: {:4d} ({:.2f})"
-                         .format(episode, episodes, status, wins, wins / episode))
+            logging.info("episode: {:05d}/{:05d} | loss: {:.4f} | total wins: {:04d} ({:.2f})"
+                         .format(episode, episodes, loss, wins, wins / episodes))
 
             if episode % 10 == 0:
-                # check if current model wins from all starting cells
+                # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
                 if self.environment.win_all(self) is True:
-                    logging.info("Won from all start cells, exit learning")
+                    logging.info("Won from all start cells, stop learning")
                     break
+
+        return episode, datetime.now() - start_time
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.
