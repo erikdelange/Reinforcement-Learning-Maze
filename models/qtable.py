@@ -45,6 +45,7 @@ class QTableModel(AbstractModel):
         episodes = kwargs.get("episodes", 1000)
 
         wins = 0
+        hist = []
         start_list = list()  # starting cells not yet used for training
         start_time = datetime.now()
 
@@ -76,6 +77,8 @@ class QTableModel(AbstractModel):
 
                 state = next_state
 
+            hist.append(wins)
+
             logging.info("episode: {:05d}/{:05d} | status: {:4s} | total wins: {:4d} ({:.2f})"
                          .format(episode, episodes, status, wins, wins / episode))
 
@@ -86,7 +89,9 @@ class QTableModel(AbstractModel):
                     logging.info("Won from all start cells, stop learning")
                     break
 
-        return episode, datetime.now() - start_time
+        logging.info("episodes: {:05d} | time spent: {}".format(episodes, datetime.now() - start_time))
+
+        return hist
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q-table.

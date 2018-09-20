@@ -28,7 +28,7 @@ class QNetworkModel(AbstractModel):
         self.model = Sequential()
         self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="sigmoid"))
         self.model.add(Dense(game.maze.size, activation="sigmoid"))
-        self.model.add(Dense(len(actions), activation="linear"))
+        self.model.add(Dense(len(actions)))
         self.model.compile(optimizer="adam", loss="mse")
 
     def train(self, **kwargs):
@@ -45,6 +45,7 @@ class QNetworkModel(AbstractModel):
         episodes = kwargs.get("episodes", 1000)
 
         wins = 0
+        hist = []
         start_list = list()  # starting cells not yet used for training
         start_time = datetime.now()
 
@@ -75,7 +76,7 @@ class QNetworkModel(AbstractModel):
                 target_vector[0][action] = target  # update Q value for this action
 
                 self.model.fit(state, target_vector, epochs=4, verbose=0)
-                loss = self.model.evaluate(state, target_vector, verbose=0)
+                loss += self.model.evaluate(state, target_vector, verbose=0)
 
                 if status in ("win", "lose"):  # terminal state reached, stop episode
                     if status == "win":
@@ -83,6 +84,8 @@ class QNetworkModel(AbstractModel):
                     break
 
                 state = next_state
+
+            hist.append(wins)
 
             logging.info("episode: {:05d}/{:05d} | loss: {:.4f} | total wins: {:04d} ({:.2f})"
                          .format(episode, episodes, loss, wins, wins / episodes))
@@ -94,7 +97,9 @@ class QNetworkModel(AbstractModel):
                     logging.info("Won from all start cells, stop learning")
                     break
 
-        return episode, datetime.now() - start_time
+        logging.info("episodes: {:05d} | time spent: {}".format(episodes, datetime.now() - start_time))
+
+        return hist
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.

@@ -122,6 +122,7 @@ class QReplayNetworkModel(AbstractModel):
         experience = ExperienceReplay(self.model, discount=discount)
 
         wins = 0
+        hist = []
         start_list = list()  # starting cells not yet used for training
         start_time = datetime.now()
 
@@ -157,10 +158,12 @@ class QReplayNetworkModel(AbstractModel):
                                epochs=4,
                                batch_size=16,
                                verbose=0)
-                loss = self.model.evaluate(inputs, targets, verbose=0)
-                # loss = self.models.train_on_batch(inputs, targets)
+                loss += self.model.evaluate(inputs, targets, verbose=0)
+                # loss += self.models.train_on_batch(inputs, targets)
 
                 state = next_state
+
+            hist.append(wins)
 
             logging.info("episode: {:05d}/{:05d} | loss: {:.4f} | total wins: {:04d} ({:.2f})"
                          .format(episode, episodes, loss, wins, wins / episodes))
@@ -174,7 +177,9 @@ class QReplayNetworkModel(AbstractModel):
 
         self.save(self.name)  # Save trained models weights and architecture
 
-        return episode, datetime.now() - start_time
+        logging.info("episodes: {:05d} | time spent: {}".format(episodes, datetime.now() - start_time))
+
+        return hist
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.

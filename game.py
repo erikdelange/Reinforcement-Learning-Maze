@@ -233,6 +233,16 @@ class Maze:
             return True
 
 
+def plot_moving_average_diff(a, n=100):
+    diff = np.diff(a)
+    ret = np.cumsum(diff, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    data = ret[n - 1:] / n
+    plt.plot(data)
+    plt.ylabel("Average of wins per game")
+    plt.show()
+
+
 if __name__ == "__main__":
     from models import RandomModel, QTableModel, QNetworkModel, QReplayNetworkModel
 
@@ -250,29 +260,25 @@ if __name__ == "__main__":
         [0, 1, 1, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 1, 0, 0]
     ])  # 0 = free, 1 = occupied
-
     game = Maze(maze)
 
-    # change index to choose the model to use
-    index = 2
-    test = ["random", "qtable", "qnetwork", "qreplay", "load previous qreplay"][index]
+    # change the index to choose the model to use
+    test = ["random", "qtable", "qnetwork", "qreplay", "load previous qreplay"][3]  # index is zero based
 
     if test == "random":
         model = RandomModel(game)
-        episodes, time = model.train()
+        model.train()
     elif test == "qtable":
         model = QTableModel(game)
-        episodes, time = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=500)
-        logging.info("episodes: {:05d} | time spent: {}".format(episodes, time))
+        hist = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=1000)
+        plot_moving_average_diff(hist)
     elif test == "qnetwork":
         model = QNetworkModel(game)
-        episodes, time = model.train(discount=0.90, exploration_rate=0.10, episodes=500)
-        logging.info("episodes: {:05d} | time spent: {}".format(episodes, time))
+        hist = model.train(discount=0.90, exploration_rate=0.10, episodes=1000)
+        plot_moving_average_diff(hist)
     elif test == "qreplay":
         model = QReplayNetworkModel(game)
-        episodes, time = model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 10,
-                                     max_memory=maze.size * 8)
-        logging.info("episodes: {:05d} | time spent: {}".format(episodes, time))
+        model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 10, max_memory=maze.size * 8)
     else:
         model = QReplayNetworkModel(game, load=True)
 
