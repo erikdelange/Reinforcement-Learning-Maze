@@ -6,28 +6,28 @@ import numpy as np
 from keras import Sequential
 from keras.layers import Dense
 
-from game import actions
+from environment.maze import actions
 from models import AbstractModel
 
 
 class QNetworkModel(AbstractModel):
     """ Prediction model which uses Q-learning and a simple neural network.
 
-        The network learns by playing training games. After every move the Q's are updated according to
-        the Bellman equation. The resulting state + Q's are fed into the network. The state is represented
-        as a [1][N] vector where N is the number of cells in the maze. The training algorithm ensures that
-        the game is started from every possible cell. Training ends after a fixed number of games, or
-        earlier if a stopping criterion is reached (here: a 100% win rate).
+        The network learns how states connect to actions by playing training games. After every move the Q's
+        are updated according to the Bellman equation. The resulting state + Q's are fed into the network.
+        State is represented as a [1][N] vector where N is the number of cells in the maze. The training
+        algorithm ensures that the game is started from every possible cell. Training ends after a fixed
+        number of games, or earlier if a stopping criterion is reached (here: a 100% win rate).
 
         :param class Maze game: Maze game object.
     """
 
-    def __init__(self, game):
-        super().__init__(game)
+    def __init__(self, game, **kwargs):
+        super().__init__(game, **kwargs)
 
         self.model = Sequential()
-        self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="sigmoid"))
-        self.model.add(Dense(game.maze.size, activation="sigmoid"))
+        self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="relu"))
+        self.model.add(Dense(game.maze.size, activation="relu"))
         self.model.add(Dense(len(actions)))
         self.model.compile(optimizer="adam", loss="mse")
 
@@ -87,19 +87,19 @@ class QNetworkModel(AbstractModel):
 
             hist.append(wins)
 
-            logging.info("episode: {:05d}/{:05d} | loss: {:.4f} | total wins: {:04d} ({:.2f})"
-                         .format(episode, episodes, loss, wins, wins / episodes))
+            logging.info("episode: {:d}/{:d} | loss: {:.4f} | total wins: {:d}"
+                         .format(episode, episodes, loss, wins))
 
             if episode % 10 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
                 if self.environment.win_all(self) is True:
-                    logging.info("Won from all start cells, stop learning")
+                    logging.info("won from all start cells, stop learning")
                     break
 
-        logging.info("episodes: {:05d} | time spent: {}".format(episodes, datetime.now() - start_time))
+        logging.info("episodes: {:d} | time spent: {}".format(episode, datetime.now() - start_time))
 
-        return hist
+        return hist, episode, datetime.now() - start_time
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.

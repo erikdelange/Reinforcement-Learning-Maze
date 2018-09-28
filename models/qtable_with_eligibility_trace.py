@@ -8,13 +8,16 @@ from environment.maze import CELL_CURRENT
 from models import AbstractModel
 
 
-class QTableModel(AbstractModel):
-    """ Prediction model which uses Q-learning and uses a Q-table.
+class QTableTraceModel(AbstractModel):
+    """ Prediction model which uses Q-learning and uses a Q-table and an eligibility trace.
 
         For every state (= maze layout with the agents current location ) the Q for each of the actions is stored.
         in a table. Initially all Q's are 0. When playing training games after every move the Q's in the table are
         updated according to the Bellman equation (= based on the reward gained after making the move). Training
-        ends after a fixed number of games, or earlier if a stopping criterion is reached (here: a 100% win rate)
+        ends after a fixed number of games, or earlier if a stopping criterion is reached (here: a 100% win rate).
+        The model keeps track of the states which have been visited and also updates the Q's of previous
+        state-action pairs based on the current reward (a.k.a. eligibility trace). With every step the amount
+        in which previous Q's are update decays. This approach is meant to speed up learning.
 
         :param class Maze game: Maze game object.
     """
@@ -22,13 +25,13 @@ class QTableModel(AbstractModel):
     def __init__(self, game, **kwargs):
         super().__init__(game, **kwargs)
         self.game = game
-        self.qtable = dict()  # table with Q's per action
+        self.qtable = dict()
 
-        for cell in game.cells:  # fill the initial Q table
+        for cell in game.cells:
             state = np.copy(self.environment.maze)
             state[cell[::-1]] = CELL_CURRENT
             state = tuple(state.flatten())  # convert [1][N] array to tuple([N]) so it can be used as dictionary key
-            self.qtable[state] = [0, 0, 0, 0]  # 4 possible actions, equally good
+            self.qtable[state] = [0, 0, 0, 0]  # 4 possible actions
 
     def train(self, **kwargs):
         """ Hyperparameters:
@@ -45,11 +48,14 @@ class QTableModel(AbstractModel):
         episodes = kwargs.get("episodes", 1000)
 
         wins = 0
-        hist = []  # store evolution of number of wins over the episodes for reporting purposes
+        hist = []  # store evolution of number of wins over the episodes
+        decay = 0.75  # eligibility trace decay rate
         start_list = list()
         start_time = datetime.now()
 
         for episode in range(1, episodes):
+            etrace = dict()
+
             if not start_list:
                 start_list = self.environment.empty.copy()
             start_cell = random.choice(start_list)
@@ -57,9 +63,14 @@ class QTableModel(AbstractModel):
             # start_cell = random.choice(self.environment.empty)
 
             state = self.environment.reset(start_cell)
-            state = tuple(state.flatten())  # change state array to tuple so it can be used as dictionary key
+            state = tuple(state.flatten())
 
             while True:
+                try:
+                    etrace[state] += 1
+                except KeyError:
+                    etrace[state] = 1
+
                 if np.random.random() < exploration_rate:
                     action = random.choice(self.environment.actions)
                 else:
@@ -68,10 +79,17 @@ class QTableModel(AbstractModel):
                 next_state, reward, status = self.environment.step(action)
                 next_state = tuple(next_state.flatten())
 
-                self.qtable[state][action] += learning_rate * (
-                        reward + discount * max(self.qtable[next_state]) - self.qtable[state][action])
+                # update Q's in trace
+                delta = reward + discount * max(self.qtable[next_state]) - self.qtable[state][action]
 
-                if status in ("win", "lose"):  # terminal state reached, stop training episode
+                for key in etrace.keys():
+                    self.qtable[key][action] += learning_rate * delta * etrace[key]
+
+                # decay eligibility trace
+                for key in etrace.keys():
+                    etrace[key] *= (discount * decay)
+
+                if status in ("win", "lose"):  # terminal state reached, stop episode
                     if status == "win":
                         wins += 1
                     break

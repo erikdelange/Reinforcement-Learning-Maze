@@ -7,7 +7,7 @@ from keras import Sequential
 from keras.layers import Dense
 from keras.models import model_from_json
 
-from game import actions
+from environment.maze import actions
 from models import AbstractModel
 
 
@@ -20,14 +20,14 @@ class ExperienceReplay:
         :param float discount: (gamma) preference for future rewards (0 = not at all, 1 = only)
     """
 
-    def __init__(self, model, max_memory=1000, discount=0.9):
+    def __init__(self, model, max_memory=1000, discount=0.95):
         self.model = model
         self.discount = discount
         self.memory = list()
         self.max_memory = max_memory
 
     def remember(self, transition):
-        """ Add a game transition at the end of the memory list.
+        """ Add a game transition at the tail of the memory list.
 
             :param list transition: [state, move, reward, next_state, status]
         """
@@ -165,21 +165,21 @@ class QReplayNetworkModel(AbstractModel):
 
             hist.append(wins)
 
-            logging.info("episode: {:05d}/{:05d} | loss: {:.4f} | total wins: {:04d} ({:.2f})"
-                         .format(episode, episodes, loss, wins, wins / episodes))
+            logging.info("episode: {:d}/{:d} | loss: {:.4f} | total wins: {:d}"
+                         .format(episode, episodes, loss, wins))
 
             if episode % 10 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
                 if self.environment.win_all(self) is True:
-                    logging.info("Won from all start cells, stop learning")
+                    logging.info("won from all start cells, stop learning")
                     break
 
         self.save(self.name)  # Save trained models weights and architecture
 
-        logging.info("episodes: {:05d} | time spent: {}".format(episodes, datetime.now() - start_time))
+        logging.info("episodes: {:d} | time spent: {}".format(episode, datetime.now() - start_time))
 
-        return hist
+        return hist, episode, datetime.now() - start_time
 
     def predict(self, state):
         """ Choose the action with the highest Q from the Q network.
