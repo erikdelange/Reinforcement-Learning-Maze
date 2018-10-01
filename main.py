@@ -36,7 +36,7 @@ if 0:  # train using Q table
     model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
 
 if 1:  # train using a Q table and eligibility trace
-    # game.display = True  # online view of progress, nice but slow
+    # game.display = True  # uncomment for direct view of progress (nice but slow)
     model = QTableTraceModel(game)
     model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
 
@@ -52,26 +52,16 @@ if 0:  # load a previously trained model
     model = QReplayNetworkModel(game, load=True)
 
 if 0:  # log the average training time per model (takes a few hours)
-    time_training()
-    plt.tight_layout()
-
-game.display = True
-game.play(model, start_cell=(0, 0))
-# game.play(model, start_cell=(2, 5))
-# game.play(model, start_cell=(4, 1))
-
-plt.show()  # must be placed here else the image disappears immediately at the end of the program
-
-
-def time_training():
     """ Run a number of training episodes and plot the results in histograms. Time consuming. """
-    runs = 100
+    runs = 50
 
     epi = list()
     nme = list()
     sec = list()
 
-    for model_id in range(4):
+    models = [0, 1, 2, 3]
+
+    for model_id in models:
         episodes = list()
         seconds = list()
 
@@ -85,8 +75,6 @@ def time_training():
                 model = QNetworkModel(game, name="QNetworkModel")
             elif model_id == 3:
                 model = QReplayNetworkModel(game, name="QReplayNetworkModel")
-            else:
-                return
 
             _, e, s = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
             episodes.append(e)
@@ -100,15 +88,20 @@ def time_training():
         sec.append(seconds)
         nme.append(model.name)
 
-    plt.subplots(2, 4, sharex="row", sharey="row")
+    f, (epi_ax, sec_ax) = plt.subplots(2, len(models), sharex="row", sharey="row", tight_layout=True)
 
     for i in range(len(epi)):
-        plt.subplot(2, 4, i + 1)
-        plt.title(nme[i])
-        plt.xlabel("training episodes")
-        plt.hist(epi[i])
+        epi_ax[i].set_title(nme[i])
+        epi_ax[i].set_xlabel("training episodes")
+        epi_ax[i].hist(epi[i], edgecolor="black")
 
     for i in range(len(sec)):
-        plt.subplot(2, 4, i + 5)
-        plt.xlabel("seconds per episode")
-        plt.hist(sec[i])
+        sec_ax[i].set_xlabel("seconds per episode")
+        sec_ax[i].hist(sec[i], edgecolor="black")
+
+game.display = True
+# game.play(model, start_cell=(0, 0))
+# game.play(model, start_cell=(2, 5))
+# game.play(model, start_cell=(4, 1))
+
+plt.show()  # must be placed here else the image disappears immediately at the end of the program

@@ -28,7 +28,7 @@ class QNetworkModel(AbstractModel):
         self.model = Sequential()
         self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="relu"))
         self.model.add(Dense(game.maze.size, activation="relu"))
-        self.model.add(Dense(len(actions)))
+        self.model.add(Dense(len(actions), activation="linear"))
         self.model.compile(optimizer="adam", loss="mse")
 
     def train(self, **kwargs):
@@ -60,23 +60,26 @@ class QNetworkModel(AbstractModel):
             loss = 0.0
 
             while True:
+                q = self.model.predict(state)
+
                 if np.random.random() < exploration_rate:
                     action = random.choice(self.environment.actions)
                 else:
-                    action = np.argmax(self.model.predict(state))
+                    mv = np.amax(q[0])
+                    actions = np.nonzero(q[0] == mv)[0]
+                    action = random.choice(actions)
 
                 next_state, reward, status = self.environment.step(action)
 
                 if status in ("win", "lose"):
                     target = reward  # no discount needed if a terminal state was reached.
                 else:
-                    target = reward + discount * np.max(self.model.predict(next_state))
+                    target = reward + discount * np.amax(self.model.predict(next_state)[0])
 
-                target_vector = self.model.predict(state)
-                target_vector[0][action] = target  # update Q value for this action
+                q[0][action] = target  # update Q value for this action
 
-                self.model.fit(state, target_vector, epochs=4, verbose=0)
-                loss += self.model.evaluate(state, target_vector, verbose=0)
+                self.model.fit(state, q, epochs=1, verbose=0)
+                loss += self.model.evaluate(state, q, verbose=0)
 
                 if status in ("win", "lose"):  # terminal state reached, stop episode
                     if status == "win":
@@ -87,8 +90,8 @@ class QNetworkModel(AbstractModel):
 
             hist.append(wins)
 
-            logging.info("episode: {:d}/{:d} | loss: {:.4f} | total wins: {:d}"
-                         .format(episode, episodes, loss, wins))
+            logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | total wins: {:d} | e: {:.5f}"
+                         .format(episode, episodes, status, loss, wins, exploration_rate))
 
             if episode % 10 == 0:
                 # check if the current model wins from all starting cells
@@ -102,10 +105,14 @@ class QNetworkModel(AbstractModel):
         return hist, episode, datetime.now() - start_time
 
     def predict(self, state):
-        """ Choose the action with the highest Q from the Q network.
+        """ Policy: choose the action with the highest Q from the Q-table. Random choice if there are multiple actions
+            with an equal max Q.
 
             :param np.array state: Game state.
             :return int: Chosen action.
         """
         q = self.model.predict(state)
-        return np.argmax(q[0])  # action is the index of the highest Q value
+
+        mv = np.amax(q[0])  # determine max Q
+        actions = np.nonzero(q[0] == mv)[0]  # extract (index of) action(s) with the max Q
+        return random.choice(actions)

@@ -67,7 +67,7 @@ class ExperienceReplay:
             if status == "win":
                 targets[i, move] = reward  # no discount needed if a terminal state was reached.
             else:
-                targets[i, move] = reward + self.discount * np.max(self.predict(next_state))
+                targets[i, move] = reward + self.discount * np.amax(self.predict(next_state))
 
         return states, targets
 
@@ -89,7 +89,7 @@ class QReplayNetworkModel(AbstractModel):
             self.model = Sequential()
             self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="relu"))
             self.model.add(Dense(game.maze.size, activation="relu"))
-            self.model.add(Dense(len(actions)))
+            self.model.add(Dense(len(actions), activation="linear"))
         else:
             self.load(self.name)
 
@@ -140,7 +140,10 @@ class QReplayNetworkModel(AbstractModel):
                 if np.random.random() < exploration_rate:
                     action = random.choice(self.environment.actions)
                 else:
-                    action = np.argmax(experience.predict(state))
+                    q = experience.predict(state)
+                    mv = np.amax(q)
+                    actions = np.nonzero(q == mv)[0]
+                    action = random.choice(actions)
 
                 next_state, reward, status = self.environment.step(action)
 
@@ -159,14 +162,13 @@ class QReplayNetworkModel(AbstractModel):
                                batch_size=16,
                                verbose=0)
                 loss += self.model.evaluate(inputs, targets, verbose=0)
-                # loss += self.models.train_on_batch(inputs, targets)
 
                 state = next_state
 
             hist.append(wins)
 
-            logging.info("episode: {:d}/{:d} | loss: {:.4f} | total wins: {:d}"
-                         .format(episode, episodes, loss, wins))
+            logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | total wins: {:d} | e: {:.5f}"
+                         .format(episode, episodes, status, loss, wins, exploration_rate))
 
             if episode % 10 == 0:
                 # check if the current model wins from all starting cells
@@ -182,10 +184,14 @@ class QReplayNetworkModel(AbstractModel):
         return hist, episode, datetime.now() - start_time
 
     def predict(self, state):
-        """ Choose the action with the highest Q from the Q network.
+        """ Policy: choose the action with the highest Q from the Q-table. Random choice if there are multiple actions
+            with an equal max Q.
 
             :param np.array state: Game state.
             :return int: Chosen action.
         """
         q = self.model.predict(state)
-        return np.argmax(q[0])
+
+        mv = np.amax(q[0])  # determine max Q
+        actions = np.nonzero(q[0] == mv)[0]  # extract (index of) action(s) with the max Q
+        return random.choice(actions)
