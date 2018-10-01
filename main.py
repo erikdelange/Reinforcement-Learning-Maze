@@ -1,10 +1,7 @@
-import logging
-
 import matplotlib.pyplot as plt
-import numpy as np
 
 from environment import Maze
-from models import QTableModel, QNetworkModel, QReplayNetworkModel, QTableTraceModel
+from models import *
 
 logging.basicConfig(level=logging.INFO,
                     format="%(levelname)s: %(asctime)s: %(message)s",
@@ -42,7 +39,10 @@ if 1:  # train using a Q table and eligibility trace
 
 if 0:  # train using a simple neural network
     model = QNetworkModel(game)
-    model.train(discount=0.90, exploration_rate=0.10, episodes=10000)
+    hist, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=10000)
+    plt.plot(hist)
+    plt.xlabel("games")
+    plt.ylabel("wins")
 
 if 0:  # train using a neural network with experience replay, saves the results
     model = QReplayNetworkModel(game)
@@ -102,6 +102,6 @@ if 0:  # log the average training time per model (takes a few hours)
 game.display = True
 # game.play(model, start_cell=(0, 0))
 # game.play(model, start_cell=(2, 5))
-# game.play(model, start_cell=(4, 1))
+game.play(model, start_cell=(4, 1))
 
 plt.show()  # must be placed here else the image disappears immediately at the end of the program
