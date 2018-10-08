@@ -165,15 +165,15 @@ class QReplayNetworkModel(AbstractModel):
 
                 state = next_state
 
-            hist.append(wins)
-
             logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | total wins: {:d} | e: {:.5f}"
                          .format(episode, episodes, status, loss, wins, exploration_rate))
 
-            if episode % 10 == 0:
+            if episode % 5 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
-                if self.environment.win_all(self) is True:
+                w_all, win_rate = self.environment.win_all(self)
+                hist.append(win_rate)
+                if w_all is True:
                     logging.info("won from all start cells, stop learning")
                     break
 

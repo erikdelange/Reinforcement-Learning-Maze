@@ -39,7 +39,7 @@ class QTableModel(AbstractModel):
         episodes = kwargs.get("episodes", 1000)
 
         wins = 0
-        hist = []  # store evolution of number of wins over the episodes for reporting purposes
+        hist = []  # store evolution of win rate for reporting purposes
         start_list = list()
         start_time = datetime.now()
 
@@ -78,15 +78,15 @@ class QTableModel(AbstractModel):
 
                 state = next_state
 
-            hist.append(wins)
-
             logging.info("episode: {:d}/{:d} | status: {:4s} | total wins: {:d} | e: {:.5f}"
                          .format(episode, episodes, status, wins, exploration_rate))
 
-            if episode % 10 == 0:
+            if episode % 5 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
-                if self.environment.win_all(self) is True:
+                w_all, win_rate = self.environment.win_all(self)
+                hist.append(win_rate)
+                if w_all is True:
                     logging.info("won from all start cells, stop learning")
                     break
 

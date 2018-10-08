@@ -7,24 +7,20 @@ import numpy as np
 from models import AbstractModel
 
 
-class QTableTraceModel(AbstractModel):
-    """ Prediction model which uses Q-learning, a Q-table and an eligibility trace.
+class SarsaTableModel(AbstractModel):
+    """ Prediction model which uses (on policy) SARSA and a Q-table.
 
         For every state (= maze layout with the agents current location ) the Q for each of the actions is stored.
-        in a table. The key for this table is (state). Initially all Q's are 0. When playing training games after
-        every move the Q's in the table are updated using the Bellman equation (= based on the reward gained after
-        making the move). Training ends after a fixed number of games, or earlier if a stopping criterion is
-        reached (here: a 100% win rate).
-        The model keeps track of the states which have been visited and also updates the Q's of previous
-        state-action pairs based on the current reward (a.k.a. eligibility trace). With every step the amount
-        in which previous Q's are update decays. This approach is meant to speed up learning.
+        in a table. The key for this table is (state + action). Initially all Q's are 0. When playing training games
+        after every move the Q's in the table are updated based on the reward gained after making the move. Training
+        ends after a fixed number of games, or earlier if a stopping criterion is reached (here: a 100% win rate).
 
         :param class Maze game: Maze game object.
     """
 
     def __init__(self, game, **kwargs):
         super().__init__(game, **kwargs)
-        self.qtable = dict()
+        self.Q = dict()  # table with Q per (state, action) combination
 
     def train(self, **kwargs):
         """ Hyperparameters:
@@ -33,7 +29,6 @@ class QTableTraceModel(AbstractModel):
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword float exploration_decay: exploration rate reduction after each random step (<= 1, 1 = no at all)
             :keyword float learning_rate: (alpha) preference for using new knowledge (0 = not at all, 1 = only)
-            :keyword float eligibility_decay: eligibility trace decay rate per step (0 = no trace, 1 = no decay)
             :keyword int episodes: number of training games to play
             :return int, datetime: number of training episodes, total time spent
         """
@@ -41,7 +36,6 @@ class QTableTraceModel(AbstractModel):
         exploration_rate = kwargs.get("exploration_rate", 0.10)
         exploration_decay = kwargs.get("exploration_decay", 0.995)  # = 0.5% reduction
         learning_rate = kwargs.get("learning_rate", 0.10)
-        eligibility_decay = kwargs.get("eligibility_decay", 0.90)  # = 10% reduction
         episodes = kwargs.get("episodes", 1000)
 
         wins = 0
@@ -50,26 +44,17 @@ class QTableTraceModel(AbstractModel):
         start_time = datetime.now()
 
         for episode in range(1, episodes):
-            etrace = dict()
-
+            # optimization: make sure to start from all possible cells
             if not start_list:
                 start_list = self.environment.empty.copy()
             start_cell = random.choice(start_list)
-            start_list.remove(start_cell)
-            # start_cell = random.choice(self.environment.empty)
+            # start_list.remove(start_cell)
 
             state = self.environment.reset(start_cell)
-            state = tuple(state.flatten())
-
-            if state not in self.qtable.keys():
-                self.qtable[state] = [0, 0, 0, 0]  # Q's for 4 possible actions
+            state = tuple(state.flatten())  # change state np.ndarray to tuple so it can be used as dictionary key
 
             while True:
-                try:
-                    etrace[state] += 1
-                except KeyError:
-                    etrace[state] = 1
-
+                # explore less and less as training progresses
                 if np.random.random() < exploration_rate:
                     action = random.choice(self.environment.actions)
                 else:
@@ -77,20 +62,16 @@ class QTableTraceModel(AbstractModel):
 
                 next_state, reward, status = self.environment.step(action)
                 next_state = tuple(next_state.flatten())
-                if next_state not in self.qtable.keys():
-                    self.qtable[next_state] = [0, 0, 0, 0]
+                next_action = self.predict(next_state)
 
-                # update Q's in trace
-                delta = reward + discount * max(self.qtable[next_state]) - self.qtable[state][action]
+                if (state, action) not in self.Q.keys():
+                    self.Q[(state, action)] = 0.0
 
-                for key in etrace.keys():
-                    self.qtable[key][action] += learning_rate * delta * etrace[key]
+                next_Q = self.Q.get((next_state, next_action), 0.0)
 
-                # decay eligibility trace
-                for key in etrace.keys():
-                    etrace[key] *= (discount * eligibility_decay)
+                self.Q[(state, action)] += learning_rate * (reward + discount * next_Q - self.Q[(state, action)])
 
-                if status in ("win", "lose"):  # terminal state reached, stop episode
+                if status in ("win", "lose"):  # terminal state reached, stop training episode
                     if status == "win":
                         wins += 1
                     break
@@ -119,16 +100,13 @@ class QTableTraceModel(AbstractModel):
         """ Policy: choose the action with the highest Q from the Q-table. Random choice if multiple actions
             have the same (max) Q.
 
-            :param np.array state: Game state (= index in the Q table).
+            :param np.array state: Game state.
             :return int: Chosen action.
         """
         if type(state) == np.ndarray:
             state = tuple(state.flatten())
 
-        try:
-            q = self.qtable[state]
-        except KeyError:
-            q = [0, 0, 0, 0]
+        q = [self.Q.get((state, a), 0.0) for a in self.environment.actions]
         logging.debug("q[] = {}".format(q))
 
         mv = np.amax(q)  # determine max Q

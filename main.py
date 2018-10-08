@@ -30,23 +30,33 @@ if 0:  # play using random model
 
 if 0:  # train using Q table
     model = QTableModel(game)
-    model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
+    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
 
-if 1:  # train using a Q table and eligibility trace
+if 1:  # train using SARSA table
+    model = SarsaTableModel(game)
+    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
+
+if 0:  # train using a Q table and eligibility trace
     # game.display = True  # uncomment for direct view of progress (nice but slow)
     model = QTableTraceModel(game)
-    model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
+    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
 
 if 0:  # train using a simple neural network
     model = QNetworkModel(game)
-    hist, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=10000)
-    plt.plot(hist)
-    plt.xlabel("games")
-    plt.ylabel("wins")
+    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=10000)
 
-if 0:  # train using a neural network with experience replay, saves the results
+if 0:  # train using a neural network with experience replay (also saves the resulting model)
     model = QReplayNetworkModel(game)
-    model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 100, max_memory=maze.size * 8)
+    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 100, max_memory=maze.size * 8)
+
+try:
+    plt.clf()
+    plt.plot(h)
+    plt.xlabel("time")
+    plt.ylabel("win rate")
+    plt.show()
+except NameError:
+    pass
 
 if 0:  # load a previously trained model
     model = QReplayNetworkModel(game, load=True)
@@ -59,7 +69,7 @@ if 0:  # log the average training time per model (takes a few hours)
     nme = list()
     sec = list()
 
-    models = [0, 1, 2, 3]
+    models = [0, 1, 2, 3, 4]
 
     for model_id in models:
         episodes = list()
@@ -70,10 +80,12 @@ if 0:  # log the average training time per model (takes a few hours)
             if model_id == 0:
                 model = QTableModel(game, name="QTableModel")
             elif model_id == 1:
-                model = QTableTraceModel(game, name="QTableTraceModel")
+                model = SarsaTableModel(game, name="SarsaTableModel")
             elif model_id == 2:
-                model = QNetworkModel(game, name="QNetworkModel")
+                model = QTableTraceModel(game, name="QTableTraceModel")
             elif model_id == 3:
+                model = QNetworkModel(game, name="QNetworkModel")
+            elif model_id == 4:
                 model = QReplayNetworkModel(game, name="QReplayNetworkModel")
 
             _, e, s = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
@@ -99,9 +111,11 @@ if 0:  # log the average training time per model (takes a few hours)
         sec_ax[i].set_xlabel("seconds per episode")
         sec_ax[i].hist(sec[i], edgecolor="black")
 
+    plt.show()
+
 game.display = True
-# game.play(model, start_cell=(0, 0))
+game.play(model, start_cell=(0, 0))
 # game.play(model, start_cell=(2, 5))
-game.play(model, start_cell=(4, 1))
+# game.play(model, start_cell=(4, 1))
 
 plt.show()  # must be placed here else the image disappears immediately at the end of the program
