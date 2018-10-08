@@ -9,7 +9,7 @@ This project demonstrates different models to move through a maze. Class Maze in
 Package *models* contains the following models:
 1. *RandomModel* is the simplest model and just selects the next move randomly. It does not learn at all. Your are lucky if you get to the exit using this model.
 2. *QTableModel* uses a table which maps state plus action to a Q value. Q represents the quality of each action. These Q's are constantly refined during training. This is a fast way to learn a policy.
-3. *SarsaTAbleModel* uses a similar setup as the previous model, but learns in a different way.
+3. *SarsaTableModel* uses a similar setup as the previous model, but learns in a different way.
 3. *QTableTraceModel* is an extension on the QTableModel. It speeds up learning by keeping track of the previous states-actions pairs, and updates these Q's as well although with a decaying rate. This model is trained the fastest. It uses a slightly different way to store Q's.
 4. *QNetworkModel* is a simple neural network which learns the relation between a state and the corresponding Q's by playing lots of games. It is significantly slower then all other models. For the limited number of states which the Maze has this is an overkill, it is more appropriate for large state spaces.
 5. *QReplayNetworkModel* is a network which learns by replaying previous games. It is the slowest of all models, but requires less training episodes then the QNetworkModel. As an extra after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from use. 
