@@ -28,15 +28,15 @@ if 0:  # play using random model
     model = RandomModel(game)
     model.train()
 
-if 0:  # train using Q table
+if 0:  # train using tabular Q-learning
     model = QTableModel(game)
     h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
 
-if 1:  # train using SARSA table
+if 0:  # train using SARSA table
     model = SarsaTableModel(game)
     h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
 
-if 0:  # train using a Q table and eligibility trace
+if 1:  # train using a tabular Q-learning and eligibility trace (aka TD-lamba)
     # game.display = True  # uncomment for direct view of progress (nice but slow)
     model = QTableTraceModel(game)
     h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)

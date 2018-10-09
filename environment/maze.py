@@ -28,7 +28,7 @@ class Maze:
         at start_cell. The agent chooses actions (move left/right/up/down) in order to reach the exit_cell. Every
         action results in a reward or penalty which are accumulated during the game. Every move gives a small
         penalty (-0.04), returning to a cell the agent visited earlier a bigger penalty(-0.25) and running into
-        a wall a large penalty (-0.75). A large reward (+10) is collected when the agent reaches the exit. The
+        a wall a large penalty (-0.75). A large reward (+1) is collected when the agent reaches the exit. The
         game always reaches a terminal state; the agent either wins or looses. Obviously reaching the exit means
         winning, but if the penalties the agent is collecting during play exceed a certain threshold the agent is
         assumed to wander around cluelessly and looses.
@@ -147,7 +147,7 @@ class Maze:
                 self.__draw()
 
             if self.__current_cell == self.__exit_cell:
-                reward = 10.0  # maximum reward for reaching the exit cell
+                reward = 1.0  # maximum reward for reaching the exit cell
             elif self.__current_cell in self.__visited:
                 reward = -0.25  # penalty for returning to a cell which was visited earlier
             else:
@@ -247,7 +247,7 @@ class Maze:
             else:
                 lose += 1
 
-        # logging.info("won: {} | lost: {} | win rate: {:.5f}".format(win, lose, win / (win + lose)))
+        logging.info("won: {} | lost: {} | win rate: {:.5f}".format(win, lose, win / (win + lose)))
 
         self.display = previous
         result = True if lose == 0 else False

@@ -34,7 +34,7 @@ class QTableModel(AbstractModel):
         """
         discount = kwargs.get("discount", 0.90)
         exploration_rate = kwargs.get("exploration_rate", 0.10)
-        exploration_decay = kwargs.get("exploration_decay", 0.99)  # = 1% reduction
+        exploration_decay = kwargs.get("exploration_decay", 1.00)  # reduction per step = 100 - exploration decay
         learning_rate = kwargs.get("learning_rate", 0.10)
         episodes = kwargs.get("episodes", 1000)
 
@@ -57,7 +57,6 @@ class QTableModel(AbstractModel):
                 # explore less and less as training progresses
                 if np.random.random() < exploration_rate:
                     action = random.choice(self.environment.actions)
-                    exploration_rate *= exploration_decay
                 else:
                     action = self.predict(state)
 
@@ -89,6 +88,8 @@ class QTableModel(AbstractModel):
                 if w_all is True:
                     logging.info("won from all start cells, stop learning")
                     break
+
+            exploration_rate *= exploration_decay
 
         logging.info("episodes: {:d} | time spent: {}".format(episode, datetime.now() - start_time))
 

@@ -33,7 +33,7 @@ class QTableTraceModel(AbstractModel):
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword float exploration_decay: exploration rate reduction after each random step (<= 1, 1 = no at all)
             :keyword float learning_rate: (alpha) preference for using new knowledge (0 = not at all, 1 = only)
-            :keyword float eligibility_decay: eligibility trace decay rate per step (0 = no trace, 1 = no decay)
+            :keyword float eligibility_decay: (lambda) eligibility trace decay rate per step (0 = no trace, 1 = no decay)
             :keyword int episodes: number of training games to play
             :return int, datetime: number of training episodes, total time spent
         """
@@ -41,7 +41,7 @@ class QTableTraceModel(AbstractModel):
         exploration_rate = kwargs.get("exploration_rate", 0.10)
         exploration_decay = kwargs.get("exploration_decay", 0.995)  # = 0.5% reduction
         learning_rate = kwargs.get("learning_rate", 0.10)
-        eligibility_decay = kwargs.get("eligibility_decay", 0.90)  # = 10% reduction
+        eligibility_decay = kwargs.get("eligibility_decay", 0.80)  # = 20% reduction
         episodes = kwargs.get("episodes", 1000)
 
         wins = 0
