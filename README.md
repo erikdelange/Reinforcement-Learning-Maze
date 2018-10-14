@@ -1,6 +1,6 @@
 ### Escape from a maze using reinforcement learning.
 
-#####Solving an optimization problem using a MDP and TD learning. 
+##### Solving an optimization problem using a MDP and TD learning. 
 
 The environment for this problem is a maze with walls and an exit. An agent (the learner and decision maker) is placed somewhere in the maze. The agents goal is to reach the exit as quick as possible. To get there the agent moves through the maze in a succession of steps. At every step the agent decides which action to take (move left/right/up/down). For this purpose the agent is trained to learn a policy (Q), which indicates the best next step to take. With every step the agent incurs a penalty or (when finally reaching the exit) a reward. These penalties and rewards are input for training the policy. 
 
