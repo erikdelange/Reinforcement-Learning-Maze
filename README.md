@@ -1,6 +1,6 @@
 ### Escape from a maze using reinforcement learning.
 
-##### Solving an optimization problem using a MDP and TD learning. 
+#####Solving an optimization problem using a MDP and TD learning. 
 
 The environment for this problem is a maze with walls and an exit. An agent (the learner and decision maker) is placed somewhere in the maze. The agents goal is to reach the exit as quick as possible. To get there the agent moves through the maze in a succession of steps. At every step the agent decides which action to take (move left/right/up/down). For this purpose the agent is trained to learn a policy (Q), which indicates the best next step to take. With every step the agent incurs a penalty or (when finally reaching the exit) a reward. These penalties and rewards are input for training the policy. 
 
@@ -10,11 +10,12 @@ This project demonstrates different models to move through a maze. Class Maze in
 
 Package *models* contains the following models:
 1. *RandomModel* is the simplest model and just selects the next move randomly. It does not learn at all. Your are lucky if you get to the exit using this model.
-2. *QTableModel* uses a table which maps state plus action to a Q value. Q represents the quality of each action. These Q's are constantly refined during training. This is a fast way to learn a policy.
-3. *SarsaTableModel* uses a similar setup as the previous model, but takes less risks during learning.
-3. *QTableTraceModel* is an extension on the QTableModel. It speeds up learning by keeping track of the previous states-actions pairs, and updates these Q's as well although with a decaying rate. This model is trained the fastest. It uses a slightly different way to store Q's.
-4. *QNetworkModel* is a simple neural network which learns the relation between a state and the corresponding Q's by playing lots of games. It is significantly slower then all other models. For the limited number of states which the Maze has this is an overkill, it is more appropriate for large state spaces.
-5. *QReplayNetworkModel* is a network which learns by replaying previous games. It is the slowest of all models, but requires less training episodes then the QNetworkModel. As an extra after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from use. 
+2. *QTableModel* uses a table to record the value of each (state, action) pair. For a state the highest value indicates the most desirable action. These values are constantly refined during training. This is a fast way to learn a policy.
+3. *SarsaTableModel* uses a similar setup as the previous model, but takes less risks during learning (= on-policy learning).
+4. *QTableTraceModel* is an extension off the QTableModel. It speeds up learning by keeping track of the previously visited state-action pairs, and updates their values as well although with a decaying rate.
+5. *SarsaTabelTraceModel* is a variant of SarsaTableModel but adds an eligibility trace (just as QTableTraceModel). 
+6. *QNetworkModel* is a simple neural network which learns the relation between a state and the corresponding values by playing lots of games. It is significantly slower then all other models. For the limited number of states which the Maze has this is an overkill, it is more appropriate for large state spaces.
+7. *QReplayNetworkModel* is a network which learns by replaying previous games. It is the slowest of all models, but requires less training episodes then the QNetworkModel. As an extra after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from use. 
 
 The table below gives an impression of the relative performance of each of these models:
 

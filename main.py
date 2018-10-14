@@ -29,31 +29,43 @@ if 0:  # play using random model
     model.train()
 
 if 0:  # train using tabular Q-learning
-    model = QTableModel(game)
-    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
+    model = QTableModel(game, name="QTableModel")
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 0:  # train using SARSA table
-    model = SarsaTableModel(game)
-    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
-
-if 1:  # train using a tabular Q-learning and eligibility trace (aka TD-lamba)
-    # game.display = True  # uncomment for direct view of progress (nice but slow)
+if 0:  # train using tabular Q-learning and an eligibility trace (aka TD-lamba)
     model = QTableTraceModel(game)
-    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
+
+if 0:  # train using tabular SARSA learning
+    model = SarsaTableModel(game)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
+
+if 1:  # train using tabular SARSA learning and an eligibility trace
+    # game.display = True  # uncomment for direct view of progress (nice but slow)
+    model = SarsaTableTraceModel(game)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
 if 0:  # train using a simple neural network
     model = QNetworkModel(game)
-    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=10000)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=500)
 
 if 0:  # train using a neural network with experience replay (also saves the resulting model)
     model = QReplayNetworkModel(game)
-    h, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 100, max_memory=maze.size * 8)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 10, max_memory=maze.size * 4)
 
 try:
+    h  # to force a NameError exception if h does not exist
     plt.clf()
-    plt.plot(h)
-    plt.xlabel("time")
+    plt.title(model.name)
+    plt.subplot(211)
+    plt.plot(*zip(*w))
+    plt.xlabel("episode")
     plt.ylabel("win rate")
+    plt.subplot(212)
+    plt.plot(h)
+    plt.xlabel("episode")
+    plt.ylabel("cumulative reward")
+    plt.tight_layout()
     plt.show()
 except NameError:
     pass
@@ -61,15 +73,56 @@ except NameError:
 if 0:  # load a previously trained model
     model = QReplayNetworkModel(game, load=True)
 
-if 0:  # log the average training time per model (takes a few hours)
-    """ Run a number of training episodes and plot the results in histograms. Time consuming. """
+if 0:  # compare learning speed (cumulative rewards and win rate) of several models in a diagram
+    rhist = list()
+    whist = list()
+    names = list()
+
+    models = [0, 1, 2, 3]
+
+    for model_id in models:
+        logging.disable(logging.WARNING)
+        if model_id == 0:
+            model = QTableModel(game, name="QTableModel")
+        elif model_id == 1:
+            model = SarsaTableModel(game, name="SarsaTableModel")
+        elif model_id == 2:
+            model = QTableTraceModel(game, name="QTableTraceModel")
+        elif model_id == 3:
+            model = SarsaTableTraceModel(game, name="SarsaTableTraceModel")
+        elif model_id == 4:
+            model = QNetworkModel(game, name="QNetworkModel")
+        elif model_id == 5:
+            model = QReplayNetworkModel(game, name="QReplayNetworkModel")
+
+        r, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, exploration_decay=0.999, learning_rate=0.10,
+                                 episodes=500)
+        rhist.append(r)
+        whist.append(w)
+        names.append(model.name)
+
+    f, (rhist_ax, whist_ax) = plt.subplots(2, len(models), sharex="row", sharey="row", tight_layout=True)
+
+    for i in range(len(rhist)):
+        rhist_ax[i].set_title(names[i])
+        rhist_ax[i].set_ylabel("cumulative reward")
+        rhist_ax[i].plot(rhist[i])
+
+    for i in range(len(whist)):
+        whist_ax[i].set_xlabel("episode")
+        whist_ax[i].set_ylabel("win rate")
+        whist_ax[i].plot(*zip(*(whist[i])))
+
+    plt.show()
+
+if 0:  # run a number of training episodes and plot the training time and episodes needed in histograms (time consuming)
     runs = 50
 
     epi = list()
     nme = list()
     sec = list()
 
-    models = [0, 1, 2, 3, 4]
+    models = [0, 1, 2, 3]
 
     for model_id in models:
         episodes = list()
@@ -84,11 +137,14 @@ if 0:  # log the average training time per model (takes a few hours)
             elif model_id == 2:
                 model = QTableTraceModel(game, name="QTableTraceModel")
             elif model_id == 3:
-                model = QNetworkModel(game, name="QNetworkModel")
+                model = SarsaTableTraceModel(game, name="SarsaTableTraceModel")
             elif model_id == 4:
+                model = QNetworkModel(game, name="QNetworkModel")
+            elif model_id == 5:
                 model = QReplayNetworkModel(game, name="QReplayNetworkModel")
 
-            _, e, s = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=10000)
+            _, e, s = model.train(discount=0.90, exploration_rate=0.10, exploration_decay=0.999, learning_rate=0.10,
+                                  episodes=200)
             episodes.append(e)
             seconds.append(s.seconds)
 
@@ -114,8 +170,8 @@ if 0:  # log the average training time per model (takes a few hours)
     plt.show()
 
 game.display = True
-game.play(model, start_cell=(0, 0))
+# game.play(model, start_cell=(0, 0))
 # game.play(model, start_cell=(2, 5))
 # game.play(model, start_cell=(4, 1))
 
-plt.show()  # must be placed here else the image disappears immediately at the end of the program
+# plt.show()  # must be placed here else the image disappears immediately at the end of the program

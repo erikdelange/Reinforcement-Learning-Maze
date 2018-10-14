@@ -7,20 +7,24 @@ import numpy as np
 from models import AbstractModel
 
 
-class SarsaTableModel(AbstractModel):
-    """ Tabular SARSA based prediction model.
+class SarsaTableTraceModel(AbstractModel):
+    """ Tabular SARSA based prediction model with eligibility trace.
 
         For every state (= maze layout with the agents current location ) the value for each of the actions is stored.
         in a table. The key for this table is (state + action). Initially all values are 0. When playing training games
         after every move the value in the table is updated based on the reward gained after making the move. Training
         ends after a fixed number of games, or earlier if a stopping criterion is reached (here: a 100% win rate).
 
+        To speed up learning the model keeps track of the (state, action) pairs which have been visited before and
+        also updates their values based on the current reward (a.k.a. eligibility trace). With every step the amount
+        in which previous values are updated decays.
+
         :param class Maze game: Maze game object.
     """
 
     def __init__(self, game, **kwargs):
         super().__init__(game, **kwargs)
-        self.Q = dict()  # table with value per (state, action) combination
+        self.Q = dict()  # table with Q per (state, action) combination
 
     def train(self, **kwargs):
         """ Hyperparameters:
@@ -29,6 +33,7 @@ class SarsaTableModel(AbstractModel):
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword float exploration_decay: exploration rate reduction after each random step (<= 1, 1 = no at all)
             :keyword float learning_rate: (alpha) preference for using new knowledge (0 = not at all, 1 = only)
+            :keyword float eligibility_decay: (lambda) eligibility trace decay rate per step (0 = no trace, 1 = no decay)
             :keyword int episodes: number of training games to play
             :return int, datetime: number of training episodes, total time spent
         """
@@ -36,6 +41,7 @@ class SarsaTableModel(AbstractModel):
         exploration_rate = kwargs.get("exploration_rate", 0.10)
         exploration_decay = kwargs.get("exploration_decay", 0.995)  # = 0.5% reduction
         learning_rate = kwargs.get("learning_rate", 0.10)
+        eligibility_decay = kwargs.get("eligibility_decay", 0.80)  # = 20% reduction
         episodes = kwargs.get("episodes", 1000)
 
         # variables for reporting purposes
@@ -56,16 +62,22 @@ class SarsaTableModel(AbstractModel):
             state = self.environment.reset(start_cell)
             state = tuple(state.flatten())  # change state np.ndarray to tuple so it can be used as dictionary key
 
+            etrace = dict()
+
             if np.random.random() < exploration_rate:
                 action = random.choice(self.environment.actions)
             else:
                 action = self.predict(state)
 
             while True:
+                try:
+                    etrace[(state, action)] += 1
+                except KeyError:
+                    etrace[(state, action)] = 1
 
                 next_state, reward, status = self.environment.step(action)
                 next_state = tuple(next_state.flatten())
-                next_action = self.predict(next_state)  # use the model to get the next action
+                next_action = self.predict(next_state)
 
                 cumulative_reward += reward
 
@@ -74,7 +86,14 @@ class SarsaTableModel(AbstractModel):
 
                 next_Q = self.Q.get((next_state, next_action), 0.0)
 
-                self.Q[(state, action)] += learning_rate * (reward + discount * next_Q - self.Q[(state, action)])
+                delta = reward + discount * next_Q - self.Q[(state, action)]
+
+                for key in etrace.keys():
+                    self.Q[key] += learning_rate * delta * etrace[key]
+
+                # decay eligibility trace
+                for key in etrace.keys():
+                    etrace[key] *= (discount * eligibility_decay)
 
                 if status in ("win", "lose"):  # terminal state reached, stop training episode
                     break

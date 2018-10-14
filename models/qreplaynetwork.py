@@ -57,7 +57,7 @@ class ExperienceReplay:
         states = np.zeros((sample_size, state_size), dtype=int)
         targets = np.zeros((sample_size, num_actions), dtype=float)
 
-        # update the Q's from the sample using the Bellman equation
+        # update the Q's from the sample
         for i, idx in enumerate(np.random.choice(range(mem_size), sample_size, replace=False)):
             state, move, reward, next_state, status = self.memory[idx]
 
@@ -110,23 +110,28 @@ class QReplayNetworkModel(AbstractModel):
 
             :keyword float discount: (gamma) preference for future rewards (0 = not at all, 1 = only)
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
+            :keyword float exploration_decay: exploration rate reduction after each random step (<= 1, 1 = no at all)
             :keyword int episodes: number of training games to play
             :keyword int sample_size: number of samples to replay for training
             :return int, datetime: number of training episodes, total time spent
         """
         discount = kwargs.get("discount", 0.90)
         exploration_rate = kwargs.get("exploration_rate", 0.10)
+        exploration_decay = kwargs.get("exploration_decay", 0.995)  # reduction per step = 100 - exploration decay
         episodes = kwargs.get("episodes", 10000)
         sample_size = kwargs.get("sample_size", 32)
 
         experience = ExperienceReplay(self.model, discount=discount)
 
-        wins = 0
-        hist = []
+        # variables for reporting purposes
+        cumulative_reward = 0
+        cumulative_reward_history = []
+        win_history = []
+
         start_list = list()  # starting cells not yet used for training
         start_time = datetime.now()
 
-        for episode in range(1, episodes):
+        for episode in range(1, episodes + 1):
             if not start_list:
                 start_list = self.environment.empty.copy()
             start_cell = random.choice(start_list)
@@ -147,11 +152,11 @@ class QReplayNetworkModel(AbstractModel):
 
                 next_state, reward, status = self.environment.step(action)
 
+                cumulative_reward += reward
+
                 experience.remember([state, action, reward, next_state, status])
 
                 if status in ("win", "lose"):  # terminal state reached, stop episode
-                    if status == "win":
-                        wins += 1
                     break
 
                 inputs, targets = experience.get_samples(sample_size=sample_size)
@@ -165,33 +170,37 @@ class QReplayNetworkModel(AbstractModel):
 
                 state = next_state
 
-            logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | total wins: {:d} | e: {:.5f}"
-                         .format(episode, episodes, status, loss, wins, exploration_rate))
+            cumulative_reward_history.append(cumulative_reward)
+
+            logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | e: {:.5f}"
+                         .format(episode, episodes, status, loss, exploration_rate))
 
             if episode % 5 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
                 w_all, win_rate = self.environment.win_all(self)
-                hist.append(win_rate)
+                win_history.append((episode, win_rate))
                 if w_all is True:
                     logging.info("won from all start cells, stop learning")
                     break
+
+            exploration_rate *= exploration_decay  # explore less as training progresses
 
         self.save(self.name)  # Save trained models weights and architecture
 
         logging.info("episodes: {:d} | time spent: {}".format(episode, datetime.now() - start_time))
 
-        return hist, episode, datetime.now() - start_time
+        return cumulative_reward_history, win_history, episode, datetime.now() - start_time
 
     def predict(self, state):
-        """ Policy: choose the action with the highest Q from the Q-table. Random choice if there are multiple actions
-            with an equal max Q.
+        """ Policy: choose the action with the highest value from the Q-table.
+            Random choice if multiple actions have the same (max) value.
 
-            :param np.array state: Game state.
+            :param np.ndarray state: Game state.
             :return int: Chosen action.
         """
-        q = self.model.predict(state)
+        q = self.model.predict(state)[0]
 
-        mv = np.amax(q[0])  # determine max Q
-        actions = np.nonzero(q[0] == mv)[0]  # extract (index of) action(s) with the max Q
+        mv = np.amax(q)  # determine max value
+        actions = np.nonzero(q == mv)[0]  # get index of the action(s) with the max value
         return random.choice(actions)

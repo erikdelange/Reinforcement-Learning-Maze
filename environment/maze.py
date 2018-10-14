@@ -22,13 +22,13 @@ actions = {
 
 
 class Maze:
-    """ A maze with walls. An agent is placed at the start cell and moves through the maze to get to the exit cell.
+    """ A maze with walls. An agent is placed at the start cell and must find the exit cell by moving through the maze.
 
         The layout of the maze and the rules how to move through it are called the environment. An agent is placed
         at start_cell. The agent chooses actions (move left/right/up/down) in order to reach the exit_cell. Every
         action results in a reward or penalty which are accumulated during the game. Every move gives a small
         penalty (-0.04), returning to a cell the agent visited earlier a bigger penalty(-0.25) and running into
-        a wall a large penalty (-0.75). A large reward (+1) is collected when the agent reaches the exit. The
+        a wall a large penalty (-0.75). The reward (+1) is collected when the agent reaches the exit. The
         game always reaches a terminal state; the agent either wins or looses. Obviously reaching the exit means
         winning, but if the penalties the agent is collecting during play exceed a certain threshold the agent is
         assumed to wander around cluelessly and looses.
