@@ -175,6 +175,8 @@ class QReplayNetworkModel(AbstractModel):
             logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | e: {:.5f}"
                          .format(episode, episodes, status, loss, exploration_rate))
 
+            self.environment.render_q(self)
+
             if episode % 5 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
@@ -192,6 +194,10 @@ class QReplayNetworkModel(AbstractModel):
 
         return cumulative_reward_history, win_history, episode, datetime.now() - start_time
 
+    def q(self, state):
+        """ Get q values for all actions for a certain state. """
+        return self.model.predict(state)[0]
+
     def predict(self, state):
         """ Policy: choose the action with the highest value from the Q-table.
             Random choice if multiple actions have the same (max) value.
@@ -199,7 +205,9 @@ class QReplayNetworkModel(AbstractModel):
             :param np.ndarray state: Game state.
             :return int: Chosen action.
         """
-        q = self.model.predict(state)[0]
+        q = self.q(state)
+
+        logging.debug("q[] = {}".format(q))
 
         mv = np.amax(q)  # determine max value
         actions = np.nonzero(q == mv)[0]  # get index of the action(s) with the max value

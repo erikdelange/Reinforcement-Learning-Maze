@@ -85,6 +85,8 @@ class QTableModel(AbstractModel):
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
                          .format(episode, episodes, status, exploration_rate))
 
+            self.environment.render_q(self)
+
             if episode % 5 == 0:
                 # check if the current model wins from all starting cells
                 # can only do this if there is a finite number of starting states
@@ -100,6 +102,13 @@ class QTableModel(AbstractModel):
 
         return cumulative_reward_history, win_history, episode, datetime.now() - start_time
 
+    def q(self, state):
+        """ Get q values for all actions for a certain state. """
+        if type(state) == np.ndarray:
+            state = tuple(state.flatten())
+
+        return [self.Q.get((state, a), 0.0) for a in self.environment.actions]
+
     def predict(self, state):
         """ Policy: choose the action with the highest value from the Q-table.
             Random choice if multiple actions have the same (max) value.
@@ -107,10 +116,8 @@ class QTableModel(AbstractModel):
             :param np.ndarray state: Game state.
             :return int: Chosen action.
         """
-        if type(state) == np.ndarray:
-            state = tuple(state.flatten())
+        q = self.q(state)
 
-        q = [self.Q.get((state, a), 0.0) for a in self.environment.actions]
         logging.debug("q[] = {}".format(q))
 
         mv = np.amax(q)  # determine max value

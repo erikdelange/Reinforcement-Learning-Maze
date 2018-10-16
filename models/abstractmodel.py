@@ -21,6 +21,11 @@ class AbstractModel(ABC):
         pass
 
     @abstractmethod
+    def q(self,state):
+        """ Return q values for state. """
+        pass
+
+    @abstractmethod
     def predict(self, state):
         """ Predict value based on state. """
         pass

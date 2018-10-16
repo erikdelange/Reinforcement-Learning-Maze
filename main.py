@@ -21,7 +21,7 @@ maze = np.array([
 game = Maze(maze)
 
 if 0:  # only show the maze
-    game.display = True
+    game.render("moves")
     game.reset()
 
 if 0:  # play using random model
@@ -36,12 +36,12 @@ if 0:  # train using tabular Q-learning and an eligibility trace (aka TD-lamba)
     model = QTableTraceModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 0:  # train using tabular SARSA learning
+if 1:  # train using tabular SARSA learning
     model = SarsaTableModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 1:  # train using tabular SARSA learning and an eligibility trace
-    # game.display = True  # uncomment for direct view of progress (nice but slow)
+if 0:  # train using tabular SARSA learning and an eligibility trace
+    game.render("training")  # shows all moves and the q table; nice but slow.
     model = SarsaTableTraceModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
@@ -55,17 +55,14 @@ if 0:  # train using a neural network with experience replay (also saves the res
 
 try:
     h  # to force a NameError exception if h does not exist
-    plt.clf()
-    plt.title(model.name)
-    plt.subplot(211)
-    plt.plot(*zip(*w))
-    plt.xlabel("episode")
-    plt.ylabel("win rate")
-    plt.subplot(212)
-    plt.plot(h)
-    plt.xlabel("episode")
-    plt.ylabel("cumulative reward")
-    plt.tight_layout()
+    fig, (ax1, ax2) = plt.subplots(2, 1, tight_layout=True)
+    fig.canvas.set_window_title(model.name)
+    ax1.plot(*zip(*w))
+    ax1.set_xlabel("episode")
+    ax1.set_ylabel("win rate")
+    ax2.plot(h)
+    ax2.set_xlabel("episode")
+    ax2.set_ylabel("cumulative reward")
     plt.show()
 except NameError:
     pass
@@ -96,7 +93,7 @@ if 0:  # compare learning speed (cumulative rewards and win rate) of several mod
             model = QReplayNetworkModel(game, name="QReplayNetworkModel")
 
         r, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, exploration_decay=0.999, learning_rate=0.10,
-                                 episodes=500)
+                                 episodes=300)
         rhist.append(r)
         whist.append(w)
         names.append(model.name)
@@ -169,9 +166,9 @@ if 0:  # run a number of training episodes and plot the training time and episod
 
     plt.show()
 
-game.display = True
-# game.play(model, start_cell=(0, 0))
+game.render("moves")
+game.play(model, start_cell=(0, 0))
 # game.play(model, start_cell=(2, 5))
 # game.play(model, start_cell=(4, 1))
 
-# plt.show()  # must be placed here else the image disappears immediately at the end of the program
+plt.show()  # must be placed here else the image disappears immediately at the end of the program

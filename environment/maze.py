@@ -48,7 +48,6 @@ class Maze:
             :param tuple exit_cell: Exit cell which the agent has to reach (optional, else lower right).
         """
         self.maze = maze
-        self.display = False  # draw grid and moves or not
         self.__minimum_reward = -0.5 * self.maze.size  # stop game if accumulated reward is below this threshold
 
         self.actions = [MOVE_LEFT, MOVE_RIGHT, MOVE_UP, MOVE_DOWN]
@@ -65,6 +64,10 @@ class Maze:
             raise Exception("Error: exit cell at {} is not inside maze".format(exit_cell))
         if self.maze[exit_cell[::-1]] == CELL_OCCUPIED:
             raise Exception("Error: exit cell at {} is not free".format(exit_cell))
+
+        self.__render = "nothing"
+        self.__ax1 = None  # axes for rendering the moves
+        self.__ax2 = None  # axes for rendering the best action per cell
 
         self.empty.remove(exit_cell)
         self.reset(start_cell)
@@ -86,25 +89,54 @@ class Maze:
         self.__total_reward = 0.0  # accumulated reward
         self.__visited = set()  # a set only stores unique values
 
-        if self.display:
+        if self.__render in ("training", "moves"):
             # render the maze
             nrows, ncols = self.maze.shape
-            plt.clf()
-            plt.xticks(np.arange(0.5, nrows, step=1), [])
-            plt.yticks(np.arange(0.5, ncols, step=1), [])
-            plt.grid(True)
-            plt.plot(*self.__current_cell, "rs", markersize=25)  # start is a big red square
-            plt.plot(*self.__exit_cell, "gs", markersize=25)  # exit is a big green square
-            plt.imshow(self.maze, cmap="binary")
+            self.__ax1.clear()
+            self.__ax1.set_xticks(np.arange(0.5, nrows, step=1))
+            self.__ax1.set_xticklabels([])
+            self.__ax1.set_yticks(np.arange(0.5, ncols, step=1))
+            self.__ax1.set_yticklabels([])
+            self.__ax1.grid(True)
+            self.__ax1.plot(*self.__current_cell, "rs", markersize=25)  # start is a big red square
+            self.__ax1.plot(*self.__exit_cell, "gs", markersize=25)  # exit is a big green square
+            self.__ax1.imshow(self.maze, cmap="binary")
             plt.pause(0.001)
 
         return self.__observe()
 
     def __draw(self):
         """ Draw a line from the agents previous to its current cell. """
-        plt.plot(*zip(*[self.__previous_cell, self.__current_cell]), "bo-")  # previous cells are blue dots
-        plt.plot(*self.__current_cell, "ro")  # current cell is a red dot
+        self.__ax1.plot(*zip(*[self.__previous_cell, self.__current_cell]), "bo-")  # previous cells are blue dots
+        self.__ax1.plot(*self.__current_cell, "ro")  # current cell is a red dot
         plt.pause(0.001)
+
+    def render(self, content="nothing"):
+        """ Define what will be rendered during play and/or training.
+
+            :param str content: "nothing", "training" (moves and q), "moves"
+        """
+        if content not in ("nothing", "training", "moves"):
+            raise ValueError("unexpected content: {}".format(content))
+
+        self.__render = content
+        if content == "nothing":
+            if self.__ax1:
+                self.__ax1.get_figure().close()
+                self.__ax1 = None
+            if self.__ax2:
+                self.__ax2.get_figure().close()
+                self.__ax2 = None
+        if content == "training":
+            if self.__ax2 is None:
+                fig, self.__ax2 = plt.subplots(1, 1, tight_layout=True)
+                fig.canvas.set_window_title("Best move")
+                self.__ax2.set_axis_off()
+                self.render_q(None)
+        if content in ("moves", "training"):
+            if self.__ax1 is None:
+                fig, self.__ax1 = plt.subplots(1, 1, tight_layout=True)
+                fig.canvas.set_window_title("Maze")
 
     def step(self, action):
         """ Move the agent according to 'action' and return the new state, reward and game status.
@@ -143,7 +175,7 @@ class Maze:
             self.__previous_cell = self.__current_cell
             self.__current_cell = (col, row)
 
-            if self.display:
+            if self.__render != "nothing":
                 self.__draw()
 
             if self.__current_cell == self.__exit_cell:
@@ -228,27 +260,60 @@ class Maze:
 
     def win_all(self, model):
         """ Check if the model wins from all possible starting cells. """
-        previous = self.display
-        self.display = False  # never render moves during execution of win_all()
-
-        # for i, cell in enumerate(self.empty):
-        #     if self.play(model, cell) == "lose":
-        #         self.display = previous
-        #         return False
-        # self.display = previous
-        # return True
+        previous = self.__render
+        self.__render = "nothing"  # never render anything during execution of win_all()
 
         win = 0
         lose = 0
 
         for cell in self.empty:
             if self.play(model, cell) == "win":
-                win +=1
+                win += 1
             else:
                 lose += 1
 
         logging.info("won: {} | lost: {} | win rate: {:.5f}".format(win, lose, win / (win + lose)))
 
-        self.display = previous
+        self.__render = previous
         result = True if lose == 0 else False
         return result, win / (win + lose)
+
+    def render_q(self, model):
+        """ Render the recommended action for each cell. """
+        if self.__render != "training":
+            return
+
+        nrows, ncols = self.maze.shape
+
+        self.__ax2.clear()
+        self.__ax2.set_xticks(np.arange(0.5, nrows, step=1))
+        self.__ax2.set_xticklabels([])
+        self.__ax2.set_yticks(np.arange(0.5, ncols, step=1))
+        self.__ax2.set_yticklabels([])
+        self.__ax2.grid(True)
+        self.__ax2.plot(*self.__exit_cell, "gs", markersize=25)  # exit is a big green square
+
+        for cell in self.empty:
+            col, row = cell
+
+            state = np.copy(self.maze)
+            state[row, col] = CELL_CURRENT  # indicate the agents current location
+            state = state.reshape((1, -1))
+            state = tuple(state.flatten())
+
+            q = model.q(state) if model is not None else [0, 0, 0, 0]
+            mv = np.amax(q)  # determine max value
+            a = np.nonzero(q == mv)[0]
+
+            for action in a:
+                if action == 0:  # left
+                    self.__ax2.arrow(col, row, -0.2, 0, head_width=0.2, head_length=0.1)
+                if action == 1:  # right
+                    self.__ax2.arrow(col, row, 0.2, 0, head_width=0.2, head_length=0.1)
+                if action == 2:  # up
+                    self.__ax2.arrow(col, row, 0, -0.2, head_width=0.2, head_length=0.1)
+                if action == 3:  # down
+                    self.__ax2.arrow(col, row, 0, 0.2, head_width=0.2, head_length=0.1)
+
+        self.__ax2.imshow(self.maze, cmap="binary")
+        plt.pause(0.001)
