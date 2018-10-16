@@ -6,7 +6,7 @@ The environment for this problem is a maze with walls and an exit. An agent (the
 
 The policies (or models) are based on Sarsa and Q-learning. During training the learning algorithm updates the action-value function Q for each state which is visited. The highest value indicates the most preferable action. Updating the values is based on the reward or penalty incurred after the action was taken. With TD-learning a model learns at every step it takes, not only when the exit is reached. However learning does speed up once the exit has been reached for the first time. 
 
-This project demonstrates different models to move through a maze. Class Maze in file *maze.py* in package *environment* defines the environment including the rules of the game. In file *main.py* an example of a maze is defined as an np.array. By changing *if 0* into *if 1* a certain model is trained and then used to play a number of games from different starting positions in the maze. When playing the agents moves can be plotted if Maze.display is set to True.
+This project demonstrates different models to move through a maze. Class Maze in file *maze.py* in package *environment* defines the environment including the rules of the game. In file *main.py* an example of a maze is defined as an np.array. By changing *if 0* into *if 1* a certain model is trained and then used to play a number of games from different starting positions in the maze. When training or playing the agents moves can be plotted using respectively Maze.render("training") or Maze.render("moves).
 
 Package *models* contains the following models:
 1. *RandomModel* is the simplest model and just selects the next move randomly. It does not learn at all. Your are lucky if you get to the exit using this model.
