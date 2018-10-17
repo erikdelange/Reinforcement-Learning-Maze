@@ -179,7 +179,7 @@ class Maze:
                 self.__draw()
 
             if self.__current_cell == self.__exit_cell:
-                reward = 1.0  # maximum reward for reaching the exit cell
+                reward = 2.0  # maximum reward for reaching the exit cell
             elif self.__current_cell in self.__visited:
                 reward = -0.25  # penalty for returning to a cell which was visited earlier
             else:

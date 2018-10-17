@@ -16,12 +16,12 @@ class AbstractModel(ABC):
         """ Save model to file. """
         pass
 
-    def train(self, **kwargs):
+    def train(self, stop_at_convergence, **kwargs):
         """ Train model. """
         pass
 
     @abstractmethod
-    def q(self,state):
+    def q(self, state):
         """ Return q values for state. """
         pass
 

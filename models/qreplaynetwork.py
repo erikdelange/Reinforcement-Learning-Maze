@@ -105,7 +105,7 @@ class QReplayNetworkModel(AbstractModel):
             self.model = model_from_json(infile.read())
         self.model.load_weights(filename + ".h5")
 
-    def train(self, **kwargs):
+    def train(self, stop_at_convergence=False, **kwargs):
         """ Hyperparameters:
 
             :keyword float discount: (gamma) preference for future rewards (0 = not at all, 1 = only)
@@ -182,7 +182,7 @@ class QReplayNetworkModel(AbstractModel):
                 # can only do this if there is a finite number of starting states
                 w_all, win_rate = self.environment.win_all(self)
                 win_history.append((episode, win_rate))
-                if w_all is True:
+                if w_all is True and stop_at_convergence is True:
                     logging.info("won from all start cells, stop learning")
                     break
 

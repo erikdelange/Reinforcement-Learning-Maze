@@ -36,11 +36,11 @@ if 0:  # train using tabular Q-learning and an eligibility trace (aka TD-lamba)
     model = QTableTraceModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 1:  # train using tabular SARSA learning
+if 0:  # train using tabular SARSA learning
     model = SarsaTableModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 0:  # train using tabular SARSA learning and an eligibility trace
+if 1:  # train using tabular SARSA learning and an eligibility trace
     game.render("training")  # shows all moves and the q table; nice but slow.
     model = SarsaTableTraceModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
@@ -54,7 +54,7 @@ if 0:  # train using a neural network with experience replay (also saves the res
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, episodes=maze.size * 10, max_memory=maze.size * 4)
 
 try:
-    h  # to force a NameError exception if h does not exist
+    h  # force a NameError exception if h does not exist
     fig, (ax1, ax2) = plt.subplots(2, 1, tight_layout=True)
     fig.canvas.set_window_title(model.name)
     ax1.plot(*zip(*w))
@@ -113,13 +113,13 @@ if 0:  # compare learning speed (cumulative rewards and win rate) of several mod
     plt.show()
 
 if 0:  # run a number of training episodes and plot the training time and episodes needed in histograms (time consuming)
-    runs = 50
+    runs = 25
 
     epi = list()
     nme = list()
     sec = list()
 
-    models = [0, 1, 2, 3]
+    models = [0, 1, 2, 3, 4, 5]
 
     for model_id in models:
         episodes = list()
@@ -140,8 +140,8 @@ if 0:  # run a number of training episodes and plot the training time and episod
             elif model_id == 5:
                 model = QReplayNetworkModel(game, name="QReplayNetworkModel")
 
-            _, e, s = model.train(discount=0.90, exploration_rate=0.10, exploration_decay=0.999, learning_rate=0.10,
-                                  episodes=200)
+            _, _, e, s = model.train(stop_at_convergence=True, discount=0.90, exploration_rate=0.10,
+                                     exploration_decay=0.999, learning_rate=0.10, episodes=200)
             episodes.append(e)
             seconds.append(s.seconds)
 

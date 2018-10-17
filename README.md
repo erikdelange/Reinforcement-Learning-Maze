@@ -15,7 +15,7 @@ Package *models* contains the following models:
 4. *QTableTraceModel* is an extension off the QTableModel. It speeds up learning by keeping track of the previously visited state-action pairs, and updates their values as well although with a decaying rate.
 5. *SarsaTabelTraceModel* is a variant of SarsaTableModel but adds an eligibility trace (just as QTableTraceModel). 
 6. *QNetworkModel* is a simple neural network which learns the relation between a state and the corresponding values by playing lots of games. It is significantly slower then all other models. For the limited number of states which the Maze has this is an overkill, it is more appropriate for large state spaces.
-7. *QReplayNetworkModel* is a network which learns by replaying previous games. It is the slowest of all models, but requires less training episodes then the QNetworkModel. As an extra after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from use. 
+7. *QReplayNetworkModel* is a network which learns by replaying previous games. It is the slowest of all models, but requires less training episodes then the QNetworkModel. As an extra feature after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from use. 
 
 The table below gives an impression of the relative performance of each of these models:
 
