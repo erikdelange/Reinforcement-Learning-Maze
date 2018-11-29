@@ -80,12 +80,12 @@ class QTableModel(AbstractModel):
 
                 state = next_state
 
+                self.environment.render_q(self)
+
             cumulative_reward_history.append(cumulative_reward)
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
                          .format(episode, episodes, status, exploration_rate))
-
-            self.environment.render_q(self)
 
             if episode % 5 == 0:
                 # check if the current model wins from all starting cells

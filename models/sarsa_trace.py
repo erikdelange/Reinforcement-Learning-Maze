@@ -39,12 +39,12 @@ class SarsaTableTraceModel(AbstractModel):
         """
         discount = kwargs.get("discount", 0.90)
         exploration_rate = kwargs.get("exploration_rate", 0.10)
-        exploration_decay = kwargs.get("exploration_decay", 0.995)  # = 0.5% reduction
+        exploration_decay = kwargs.get("exploration_decay", 0.995)  # 0.995 = 0.5% reduction
         learning_rate = kwargs.get("learning_rate", 0.10)
-        eligibility_decay = kwargs.get("eligibility_decay", 0.80)  # = 20% reduction
+        eligibility_decay = kwargs.get("eligibility_decay", 0.80)  # 0.80 = 20% reduction
         episodes = kwargs.get("episodes", 1000)
 
-        # variables for reporting purposes
+        # variables for performance reporting purposes
         cumulative_reward = 0
         cumulative_reward_history = []
         win_history = []
@@ -101,12 +101,12 @@ class SarsaTableTraceModel(AbstractModel):
                 state = next_state
                 action = next_action  # SARSA is on-policy: always follow the predicted action
 
+                self.environment.render_q(self)
+
             cumulative_reward_history.append(cumulative_reward)
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
                          .format(episode, episodes, status, exploration_rate))
-
-            self.environment.render_q(self)
 
             if episode % 5 == 0:
                 # check if the current model wins from all starting cells

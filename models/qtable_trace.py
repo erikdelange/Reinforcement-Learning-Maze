@@ -100,6 +100,8 @@ class QTableTraceModel(AbstractModel):
 
                 state = next_state
 
+                self.environment.render_q(self)
+
             cumulative_reward_history.append(cumulative_reward)
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"

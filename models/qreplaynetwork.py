@@ -170,12 +170,12 @@ class QReplayNetworkModel(AbstractModel):
 
                 state = next_state
 
+                self.environment.render_q(self)
+
             cumulative_reward_history.append(cumulative_reward)
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | loss: {:.4f} | e: {:.5f}"
                          .format(episode, episodes, status, loss, exploration_rate))
-
-            self.environment.render_q(self)
 
             if episode % 5 == 0:
                 # check if the current model wins from all starting cells

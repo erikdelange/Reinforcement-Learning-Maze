@@ -59,6 +59,7 @@ class Maze:
         self.__previous_cell = self.__current_cell = start_cell
         self.cells = [(col, row) for col in range(ncols) for row in range(nrows)]
         self.empty = [(col, row) for col in range(ncols) for row in range(nrows) if self.maze[row, col] == CELL_EMPTY]
+        self.empty.remove(exit_cell)
 
         if exit_cell not in self.cells:
             raise Exception("Error: exit cell at {} is not inside maze".format(exit_cell))
@@ -69,7 +70,6 @@ class Maze:
         self.__ax1 = None  # axes for rendering the moves
         self.__ax2 = None  # axes for rendering the best action per cell
 
-        self.empty.remove(exit_cell)
         self.reset(start_cell)
 
     def reset(self, start_cell=(0, 0)):
@@ -87,7 +87,7 @@ class Maze:
 
         self.__previous_cell = self.__current_cell = start_cell
         self.__total_reward = 0.0  # accumulated reward
-        self.__visited = set()  # a set only stores unique values
+        self.__visited = set()  # a set() only stores unique values
 
         if self.__render in ("training", "moves"):
             # render the maze
@@ -101,7 +101,9 @@ class Maze:
             self.__ax1.plot(*self.__current_cell, "rs", markersize=25)  # start is a big red square
             self.__ax1.plot(*self.__exit_cell, "gs", markersize=25)  # exit is a big green square
             self.__ax1.imshow(self.maze, cmap="binary")
-            plt.pause(0.001)
+            # plt.pause(0.001)  # replaced by the two lines below
+            self.__ax1.get_figure().canvas.draw()
+            self.__ax1.get_figure().canvas.flush_events()
 
         return self.__observe()
 
@@ -109,7 +111,9 @@ class Maze:
         """ Draw a line from the agents previous to its current cell. """
         self.__ax1.plot(*zip(*[self.__previous_cell, self.__current_cell]), "bo-")  # previous cells are blue dots
         self.__ax1.plot(*self.__current_cell, "ro")  # current cell is a red dot
-        plt.pause(0.001)
+        # plt.pause(0.001)  # replaced by the two lines below
+        self.__ax1.get_figure().canvas.draw()
+        self.__ax1.get_figure().canvas.flush_events()
 
     def render(self, content="nothing"):
         """ Define what will be rendered during play and/or training.
@@ -137,6 +141,8 @@ class Maze:
             if self.__ax1 is None:
                 fig, self.__ax1 = plt.subplots(1, 1, tight_layout=True)
                 fig.canvas.set_window_title("Maze")
+
+        plt.show(block=False)
 
     def step(self, action):
         """ Move the agent according to 'action' and return the new state, reward and game status.
@@ -316,4 +322,5 @@ class Maze:
                     self.__ax2.arrow(col, row, 0, 0.2, head_width=0.2, head_length=0.1)
 
         self.__ax2.imshow(self.maze, cmap="binary")
-        plt.pause(0.001)
+        self.__ax2.get_figure().canvas.draw()
+        # plt.pause(0.001)
