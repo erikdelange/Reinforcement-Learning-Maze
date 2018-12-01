@@ -18,11 +18,13 @@ Package *models* contains the following models:
 
 The table below gives an impression of the relative performance of each of these models:
 
-| Model | Trained | Average no of episodes | Average time per episode |
+| Model | Trained | Average no of episodes | Average training time |
 | --- | --- | --- | --- | 
-| QTableModel | 50 times | 160.2 | 0:00:00.512832 |
-| QTableTraceModel | 50 times | 111.6 | 0:00:00.505072 |
-| QReplayNetworkModel | 50 times | 59.4 | 0:06:55.190230 |
+| QTableModel | 10 times | 149.5 | 16.5 sec |
+| QTableTraceModel | 10 times | 87.0 | 5.2 sec |
+| SarsaTableModel | 10 times | 114.0 | 11.7 sec |
+| SarsaTableTraceModel | 10 times | 73.0 | 5.5 sec |
+| QReplayNetworkModel | 10 times | 113.5 | 4 min 48 sec |
 
 ![Maze](https://github.com/erikdelange/Reinforcement-Learning-Maze/blob/master/maze.png)
 

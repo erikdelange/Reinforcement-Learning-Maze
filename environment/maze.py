@@ -27,8 +27,8 @@ class Maze:
         The layout of the maze and the rules how to move through it are called the environment. An agent is placed
         at start_cell. The agent chooses actions (move left/right/up/down) in order to reach the exit_cell. Every
         action results in a reward or penalty which are accumulated during the game. Every move gives a small
-        penalty (-0.04), returning to a cell the agent visited earlier a bigger penalty(-0.25) and running into
-        a wall a large penalty (-0.75). The reward (+1) is collected when the agent reaches the exit. The
+        penalty (-0.05), returning to a cell the agent visited earlier a bigger penalty(-0.25) and running into
+        a wall a large penalty (-0.75). The reward (+2.0) is collected when the agent reaches the exit. The
         game always reaches a terminal state; the agent either wins or looses. Obviously reaching the exit means
         winning, but if the penalties the agent is collecting during play exceed a certain threshold the agent is
         assumed to wander around cluelessly and looses.
@@ -189,7 +189,7 @@ class Maze:
             elif self.__current_cell in self.__visited:
                 reward = -0.25  # penalty for returning to a cell which was visited earlier
             else:
-                reward = -0.04  # penalty for a move which did not result in finding the exit cell
+                reward = -0.05  # penalty for a move which did not result in finding the exit cell
 
             self.__visited.add(self.__current_cell)
         else:
@@ -278,6 +278,7 @@ class Maze:
         logging.info("won: {} | lost: {} | win rate: {:.5f}".format(win, lose, win / (win + lose)))
 
         self.__render = previous
+
         result = True if lose == 0 else False
         return result, win / (win + lose)
 
@@ -299,8 +300,7 @@ class Maze:
         for cell in self.empty:
             state = cell
             q = model.q(state) if model is not None else [0, 0, 0, 0]
-            mv = np.amax(q)  # determine max value
-            a = np.nonzero(q == mv)[0]
+            a = np.nonzero(q == np.max(q))[0]
 
             for action in a:
                 dx = 0

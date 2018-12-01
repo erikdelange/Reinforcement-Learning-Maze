@@ -107,7 +107,7 @@ if 0:  # compare learning speed (cumulative rewards and win rate) of several mod
     plt.show()
 
 if 0:  # run a number of training episodes and plot the training time and episodes needed in histograms (time consuming)
-    runs = 5
+    runs = 10
 
     epi = list()
     nme = list()
@@ -133,7 +133,10 @@ if 0:  # run a number of training episodes and plot the training time and episod
                 model = QReplayNetworkModel(game, name="QReplayNetworkModel")
 
             _, _, e, s = model.train(stop_at_convergence=True, discount=0.90, exploration_rate=0.10,
-                                     exploration_decay=0.999, learning_rate=0.10, episodes=200)
+                                     exploration_decay=0.999, learning_rate=0.10, episodes=1000)
+
+            print(e, s)
+
             episodes.append(e)
             seconds.append(s.seconds)
 
