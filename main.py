@@ -40,12 +40,12 @@ if 0:  # train using tabular SARSA learning
     model = SarsaTableModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 0:  # train using tabular SARSA learning and an eligibility trace
-    # game.render("training")  # shows all moves and the q table; nice but slow.
+if 1:  # train using tabular SARSA learning and an eligibility trace
+    game.render("training")  # shows all moves and the q table; nice but slow.
     model = SarsaTableTraceModel(game)
     h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
 
-if 1:  # train using a neural network with experience replay (also saves the resulting model)
+if 0:  # train using a neural network with experience replay (also saves the resulting model)
     model = QReplayNetworkModel(game)
     h, w, _, _ = model.train(discount=0.80, exploration_rate=0.10, episodes=maze.size * 10, max_memory=maze.size * 4)
 
