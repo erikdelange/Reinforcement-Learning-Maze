@@ -3,6 +3,12 @@ import random
 from datetime import datetime
 
 import numpy as np
+
+np.random.seed(1)
+import tensorflow
+
+tensorflow.set_random_seed(2)
+
 from keras import Sequential
 from keras.layers import Dense
 from keras.models import model_from_json
@@ -44,15 +50,15 @@ class ExperienceReplay:
         return self.model.predict(state)[0]  # prediction is a [1][num_actions] array with Q's
 
     def get_samples(self, sample_size=10):
-        """ Retrieve a number of random observed game states and the corresponding Q target vectors.
+        """ Randomly retrieve a number of observed game states and the corresponding Q target vectors.
 
         :param int sample_size: Number of states to return
         :return np.array: input and target vectors
         """
         mem_size = len(self.memory)  # how many episodes are currently stored
         sample_size = min(mem_size, sample_size)  # cannot take more samples then available in memory
-        state_size = self.memory[0][0].size  # number of cells in maze
-        num_actions = self.model.output_shape[-1]  # number of actions based in output layer
+        state_size = self.memory[0][0].size
+        num_actions = self.model.output_shape[-1]  # number of actions in output layer
 
         states = np.zeros((sample_size, state_size), dtype=int)
         targets = np.zeros((sample_size, num_actions), dtype=float)
@@ -67,15 +73,15 @@ class ExperienceReplay:
             if status == "win":
                 targets[i, move] = reward  # no discount needed if a terminal state was reached.
             else:
-                targets[i, move] = reward + self.discount * np.amax(self.predict(next_state))
+                targets[i, move] = reward + self.discount * np.max(self.predict(next_state))
 
         return states, targets
 
 
 class QReplayNetworkModel(AbstractModel):
-    """ Prediction model which uses Q-learning and a neural network which replays past experiences.
+    """ Prediction model which uses Q-learning and a neural network which replays past moves.
 
-        The network learns by replaying a batches of training games. The training algorithm ensures that
+        The network learns by replaying a batch of training moves. The training algorithm ensures that
         the game is started from every possible cell. Training ends after a fixed number of games, or
         earlier if a stopping criterion is reached (here: a 100% win rate).
 
@@ -87,9 +93,9 @@ class QReplayNetworkModel(AbstractModel):
 
         if kwargs.get("load", False) is False:
             self.model = Sequential()
-            self.model.add(Dense(game.maze.size, input_shape=(game.maze.size,), activation="relu"))
+            self.model.add(Dense(game.maze.size, input_shape=(2,), activation="relu"))
             self.model.add(Dense(game.maze.size, activation="relu"))
-            self.model.add(Dense(len(actions), activation="linear"))
+            self.model.add(Dense(len(actions)))
         else:
             self.load(self.name)
 
@@ -117,7 +123,7 @@ class QReplayNetworkModel(AbstractModel):
         """
         discount = kwargs.get("discount", 0.90)
         exploration_rate = kwargs.get("exploration_rate", 0.10)
-        exploration_decay = kwargs.get("exploration_decay", 0.995)  # reduction per step = 100 - exploration decay
+        exploration_decay = kwargs.get("exploration_decay", 0.995)  # % reduction per step = 100 - exploration decay
         episodes = kwargs.get("episodes", 10000)
         sample_size = kwargs.get("sample_size", 32)
 
@@ -145,10 +151,9 @@ class QReplayNetworkModel(AbstractModel):
                 if np.random.random() < exploration_rate:
                     action = random.choice(self.environment.actions)
                 else:
-                    q = experience.predict(state)
-                    mv = np.amax(q)
-                    actions = np.nonzero(q == mv)[0]
-                    action = random.choice(actions)
+                    # q = experience.predict(state)
+                    # action = random.choice(np.nonzero(q == np.max(q))[0])
+                    action = self.predict(state)
 
                 next_state, reward, status = self.environment.step(action)
 
@@ -209,6 +214,5 @@ class QReplayNetworkModel(AbstractModel):
 
         logging.debug("q[] = {}".format(q))
 
-        mv = np.amax(q)  # determine max value
-        actions = np.nonzero(q == mv)[0]  # get index of the action(s) with the max value
+        actions = np.nonzero(q == np.max(q))[0]  # get index of the action(s) with the max value
         return random.choice(actions)

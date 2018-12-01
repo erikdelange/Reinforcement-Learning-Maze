@@ -232,20 +232,17 @@ class Maze:
         if self.__current_cell == self.__exit_cell:
             return "win"
 
-        if self.__total_reward < self.__minimum_reward:  # force end after to much loss
+        if self.__total_reward < self.__minimum_reward:  # force end of game after to much loss
             return "lose"
 
         return "playing"
 
     def __observe(self):
-        """ Create a [1][N] copy of the maze (N = total cell count in the maze), including the agents current location.
+        """ Return the state of the maze - in this example the agents current location.
 
-            :return numpy.array [1][size]: Maze content as an array of 1*total_cells_in_array.
+            :return numpy.array [1][2]: Agents current location.
         """
-        state = np.copy(self.maze)
-        col, row = self.__current_cell
-        state[row, col] = CELL_CURRENT  # indicate the agents current location
-        return state.reshape((1, -1))
+        return np.array([[*self.__current_cell]])
 
     def play(self, model, start_cell=(0, 0)):
         """ Play a single game, choosing the next move based a prediction from 'model'.
@@ -267,7 +264,7 @@ class Maze:
     def win_all(self, model):
         """ Check if the model wins from all possible starting cells. """
         previous = self.__render
-        self.__render = "nothing"  # never render anything during execution of win_all()
+        self.__render = "nothing"  # avoid rendering anything during execution of win_all()
 
         win = 0
         lose = 0
@@ -300,26 +297,24 @@ class Maze:
         self.__ax2.plot(*self.__exit_cell, "gs", markersize=25)  # exit is a big green square
 
         for cell in self.empty:
-            col, row = cell
-
-            state = np.copy(self.maze)
-            state[row, col] = CELL_CURRENT  # indicate the agents current location
-            state = state.reshape((1, -1))
-            state = tuple(state.flatten())
-
+            state = cell
             q = model.q(state) if model is not None else [0, 0, 0, 0]
             mv = np.amax(q)  # determine max value
             a = np.nonzero(q == mv)[0]
 
             for action in a:
+                dx = 0
+                dy = 0
                 if action == 0:  # left
-                    self.__ax2.arrow(col, row, -0.2, 0, head_width=0.2, head_length=0.1)
+                    dx = -0.2
                 if action == 1:  # right
-                    self.__ax2.arrow(col, row, 0.2, 0, head_width=0.2, head_length=0.1)
+                    dx = +0.2
                 if action == 2:  # up
-                    self.__ax2.arrow(col, row, 0, -0.2, head_width=0.2, head_length=0.1)
+                    dy = -0.2
                 if action == 3:  # down
-                    self.__ax2.arrow(col, row, 0, 0.2, head_width=0.2, head_length=0.1)
+                    dy = 0.2
+
+                self.__ax2.arrow(*cell, dx, dy, head_width=0.2, head_length=0.1)
 
         self.__ax2.imshow(self.maze, cmap="binary")
         self.__ax2.get_figure().canvas.draw()

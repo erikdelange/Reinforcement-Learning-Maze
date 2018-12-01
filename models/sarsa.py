@@ -10,8 +10,8 @@ from models import AbstractModel
 class SarsaTableModel(AbstractModel):
     """ Tabular SARSA based prediction model.
 
-        For every state (= maze layout with the agents current location ) the value for each of the actions is stored.
-        in a table. The key for this table is (state + action). Initially all values are 0. When playing training games
+        For every state (here: the agents current location ) the value for each of the actions is stored in a table.
+        The key for this table is (state + action). Initially all values are 0. When playing training games
         after every move the value in the table is updated based on the reward gained after making the move. Training
         ends after a fixed number of games, or earlier if a stopping criterion is reached (here: a 100% win rate).
 
@@ -34,7 +34,7 @@ class SarsaTableModel(AbstractModel):
         """
         discount = kwargs.get("discount", 0.90)
         exploration_rate = kwargs.get("exploration_rate", 0.10)
-        exploration_decay = kwargs.get("exploration_decay", 0.995)  # = 0.5% reduction
+        exploration_decay = kwargs.get("exploration_decay", 0.995)  # % reduction per step = 100 - exploration decay
         learning_rate = kwargs.get("learning_rate", 0.10)
         episodes = kwargs.get("episodes", 1000)
 
@@ -54,7 +54,7 @@ class SarsaTableModel(AbstractModel):
             start_list.remove(start_cell)
 
             state = self.environment.reset(start_cell)
-            state = tuple(state.flatten())  # change state np.ndarray to tuple so it can be used as dictionary key
+            state = tuple(state.flatten())  # change np.ndarray to tuple so it can be used as dictionary key
 
             if np.random.random() < exploration_rate:
                 action = random.choice(self.environment.actions)
@@ -69,7 +69,7 @@ class SarsaTableModel(AbstractModel):
 
                 cumulative_reward += reward
 
-                if (state, action) not in self.Q.keys():
+                if (state, action) not in self.Q.keys():  # ensure value exists for (state, action) to avoid a KeyError
                     self.Q[(state, action)] = 0.0
 
                 next_Q = self.Q.get((next_state, next_action), 0.0)
@@ -109,7 +109,7 @@ class SarsaTableModel(AbstractModel):
         if type(state) == np.ndarray:
             state = tuple(state.flatten())
 
-        return [self.Q.get((state, a), 0.0) for a in self.environment.actions]
+        return np.array([self.Q.get((state, action), 0.0) for action in self.environment.actions])
 
     def predict(self, state):
         """ Policy: choose the action with the highest value from the Q-table.
@@ -122,6 +122,5 @@ class SarsaTableModel(AbstractModel):
 
         logging.debug("q[] = {}".format(q))
 
-        mv = np.amax(q)  # determine max value
-        actions = np.nonzero(q == mv)[0]  # get index of the action(s) with the max value
+        actions = np.nonzero(q == np.max(q))[0]  # get index of the action(s) with the max value
         return random.choice(actions)

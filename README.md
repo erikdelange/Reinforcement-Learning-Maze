@@ -14,8 +14,7 @@ Package *models* contains the following models:
 3. *SarsaTableModel* uses a similar setup as the previous model, but takes less risks during learning (= on-policy learning).
 4. *QTableTraceModel* is an extension of the QTableModel. It speeds up learning by keeping track of previously visited state-action pairs, and updates their values as well although with a decaying rate.
 5. *SarsaTableTraceModel* is a variant of SarsaTableModel but adds an eligibility trace (just as QTableTraceModel). 
-6. *QNetworkModel* is a simple neural network which learns the relation between a state and the corresponding values by playing lots of games. It is - for this simple problem - significantly slower then all other models. For the limited number of states which the Maze has this is an overkill, it is more appropriate for large state spaces.
-7. *QReplayNetworkModel* is a network which learns by replaying previous games. It is the slowest of all models, but requires less training episodes then the QNetworkModel. As an extra feature after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from actual use. 
+6. *QReplayNetworkModel* is a simple neural network which learns the relation between a state and the corresponding values by replaying previous moves. It is significantly slower then all other models, and an overkill for a problem with such a small state space. As an extra feature after learning it saves the model to disk so this can be loaded later for a next game. This is typically how you would use a neural network in a real world situation where training is separated from actual use. 
 
 The table below gives an impression of the relative performance of each of these models:
 
@@ -23,7 +22,6 @@ The table below gives an impression of the relative performance of each of these
 | --- | --- | --- | --- | 
 | QTableModel | 50 times | 160.2 | 0:00:00.512832 |
 | QTableTraceModel | 50 times | 111.6 | 0:00:00.505072 |
-| QNetworkModel | 50 times | 257.2 | 0:02:11.391048 |
 | QReplayNetworkModel | 50 times | 59.4 | 0:06:55.190230 |
 
 ![Maze](https://github.com/erikdelange/Reinforcement-Learning-Maze/blob/master/maze.png)
