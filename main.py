@@ -1,11 +1,31 @@
+import logging
+from enum import Enum, auto
+
 import matplotlib.pyplot as plt
+import numpy as np
 
-from environment import Maze
-from models import *
+import models
+from environment.maze import Maze, Render
 
-logging.basicConfig(level=logging.INFO,
-                    format="%(levelname)s: %(asctime)s: %(message)s",
-                    datefmt="%H:%M:%S")
+logging.basicConfig(format="%(levelname)-8s: %(asctime)s: %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                    level=logging.INFO)  # Only show messages *equal to or above* this level
+
+
+class Test(Enum):
+    SHOW_MAZE_ONLY = auto()
+    RANDOM_MODEL = auto()
+    Q_LEARNING = auto()
+    Q_ELIGIBILITY = auto()
+    SARSA = auto()
+    SARSA_ELIGIBILITY = auto()
+    DEEP_Q = auto()
+    LOAD_DEEP_Q = auto()
+    SPEED_TEST_1 = auto()
+    SPEED_TEST_2 = auto()
+
+
+test = Test.SARSA_ELIGIBILITY  # which test to run
 
 maze = np.array([
     [0, 1, 0, 0, 0, 0, 0, 0],
@@ -20,37 +40,54 @@ maze = np.array([
 
 game = Maze(maze)
 
-if 0:  # only show the maze
-    game.render("moves")
+# only show the maze
+if test == Test.SHOW_MAZE_ONLY:
+    game.render(Render.MOVES)
     game.reset()
 
-if 0:  # play using random model
-    model = RandomModel(game)
-    model.train()
+# play using random model
+if test == Test.RANDOM_MODEL:
+    game.render(Render.MOVES)
+    model = models.RandomModel(game)
+    game.play(model, start_cell=(0, 0))
 
-if 0:  # train using tabular Q-learning
-    model = QTableModel(game, name="QTableModel")
-    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
+# train using tabular Q-learning
+if test == Test.Q_LEARNING:
+    game.render(Render.TRAINING)
+    model = models.QTableModel(game, name="QTableModel")
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200,
+                             stop_at_convergence=True)
 
-if 0:  # train using tabular Q-learning and an eligibility trace (aka TD-lamba)
-    model = QTableTraceModel(game)
-    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
+# train using tabular Q-learning and an eligibility trace (aka TD-lamba)
+if test == Test.Q_ELIGIBILITY:
+    game.render(Render.TRAINING)
+    model = models.QTableTraceModel(game)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200,
+                             stop_at_convergence=True)
 
-if 0:  # train using tabular SARSA learning
-    model = SarsaTableModel(game)
-    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
+# train using tabular SARSA learning
+if test == Test.SARSA:
+    game.render(Render.TRAINING)
+    model = models.SarsaTableModel(game)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200,
+                             stop_at_convergence=True)
 
-if 1:  # train using tabular SARSA learning and an eligibility trace
-    game.render("training")  # shows all moves and the q table; nice but slow.
-    model = SarsaTableTraceModel(game)
-    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200)
+# train using tabular SARSA learning and an eligibility trace
+if test == Test.SARSA_ELIGIBILITY:
+    game.render(Render.TRAINING)  # shows all moves and the q table; nice but slow.
+    model = models.SarsaTableTraceModel(game)
+    h, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, learning_rate=0.10, episodes=200,
+                             stop_at_convergence=True)
+# train using a neural network with experience replay (also saves the resulting model)
+if test == Test.DEEP_Q:
+    game.render(Render.TRAINING)
+    model = models.QReplayNetworkModel(game)
+    h, w, _, _ = model.train(discount=0.80, exploration_rate=0.10, episodes=maze.size * 10, max_memory=maze.size * 4,
+                             stop_at_convergence=True)
 
-if 0:  # train using a neural network with experience replay (also saves the resulting model)
-    model = QReplayNetworkModel(game)
-    h, w, _, _ = model.train(discount=0.80, exploration_rate=0.10, episodes=maze.size * 10, max_memory=maze.size * 4)
-
+# draw graphs showing development of win rate and cumulative rewards
 try:
-    h  # force a NameError exception if h does not exist (and thus don't try to show win rate and cumulative reward)
+    h  # force a NameError exception if h does not exist, and thus don't try to show win rate and cumulative reward
     fig, (ax1, ax2) = plt.subplots(2, 1, tight_layout=True)
     fig.canvas.set_window_title(model.name)
     ax1.plot(*zip(*w))
@@ -63,28 +100,30 @@ try:
 except NameError:
     pass
 
-if 0:  # load a previously trained model
-    model = QReplayNetworkModel(game, load=True)
+# load a previously trained model
+if test == Test.LOAD_DEEP_Q:
+    model = models.QReplayNetworkModel(game, load=True)
 
-if 0:  # compare learning speed (cumulative rewards and win rate) of several models in a diagram
+# compare learning speed (cumulative rewards and win rate) of several models in a diagram
+if test == Test.SPEED_TEST_1:
     rhist = list()
     whist = list()
     names = list()
 
-    models = [0, 1, 2, 3, 4]
+    models_to_run = [0, 1, 2, 3, 4]
 
-    for model_id in models:
+    for model_id in models_to_run:
         logging.disable(logging.WARNING)
         if model_id == 0:
-            model = QTableModel(game, name="QTableModel")
+            model = models.QTableModel(game, name="QTableModel")
         elif model_id == 1:
-            model = SarsaTableModel(game, name="SarsaTableModel")
+            model = models.SarsaTableModel(game, name="SarsaTableModel")
         elif model_id == 2:
-            model = QTableTraceModel(game, name="QTableTraceModel")
+            model = models.QTableTraceModel(game, name="QTableTraceModel")
         elif model_id == 3:
-            model = SarsaTableTraceModel(game, name="SarsaTableTraceModel")
+            model = models.SarsaTableTraceModel(game, name="SarsaTableTraceModel")
         elif model_id == 4:
-            model = QReplayNetworkModel(game, name="QReplayNetworkModel")
+            model = models.QReplayNetworkModel(game, name="QReplayNetworkModel")
 
         r, w, _, _ = model.train(discount=0.90, exploration_rate=0.10, exploration_decay=0.999, learning_rate=0.10,
                                  episodes=300)
@@ -92,7 +131,7 @@ if 0:  # compare learning speed (cumulative rewards and win rate) of several mod
         whist.append(w)
         names.append(model.name)
 
-    f, (rhist_ax, whist_ax) = plt.subplots(2, len(models), sharex="row", sharey="row", tight_layout=True)
+    f, (rhist_ax, whist_ax) = plt.subplots(2, len(models_to_run), sharex="row", sharey="row", tight_layout=True)
 
     for i in range(len(rhist)):
         rhist_ax[i].set_title(names[i])
@@ -106,31 +145,32 @@ if 0:  # compare learning speed (cumulative rewards and win rate) of several mod
 
     plt.show()
 
-if 0:  # run a number of training episodes and plot the training time and episodes needed in histograms (time consuming)
+# run a number of training episodes and plot the training time and episodes needed in histograms (time consuming)
+if test == Test.SPEED_TEST_2:
     runs = 10
 
     epi = list()
     nme = list()
     sec = list()
 
-    models = [0, 1, 2, 3, 4]
+    models_to_run = [0, 1, 2, 3, 4]
 
-    for model_id in models:
+    for model_id in models_to_run:
         episodes = list()
         seconds = list()
 
         logging.disable(logging.WARNING)
         for r in range(runs):
             if model_id == 0:
-                model = QTableModel(game, name="QTableModel")
+                model = models.QTableModel(game, name="QTableModel")
             elif model_id == 1:
-                model = SarsaTableModel(game, name="SarsaTableModel")
+                model = models.SarsaTableModel(game, name="SarsaTableModel")
             elif model_id == 2:
-                model = QTableTraceModel(game, name="QTableTraceModel")
+                model = models.QTableTraceModel(game, name="QTableTraceModel")
             elif model_id == 3:
-                model = SarsaTableTraceModel(game, name="SarsaTableTraceModel")
+                model = models.SarsaTableTraceModel(game, name="SarsaTableTraceModel")
             elif model_id == 4:
-                model = QReplayNetworkModel(game, name="QReplayNetworkModel")
+                model = models.QReplayNetworkModel(game, name="QReplayNetworkModel")
 
             _, _, e, s = model.train(stop_at_convergence=True, discount=0.90, exploration_rate=0.10,
                                      exploration_decay=0.999, learning_rate=0.10, episodes=1000)
@@ -148,7 +188,7 @@ if 0:  # run a number of training episodes and plot the training time and episod
         sec.append(seconds)
         nme.append(model.name)
 
-    f, (epi_ax, sec_ax) = plt.subplots(2, len(models), sharex="row", sharey="row", tight_layout=True)
+    f, (epi_ax, sec_ax) = plt.subplots(2, len(models_to_run), sharex="row", sharey="row", tight_layout=True)
 
     for i in range(len(epi)):
         epi_ax[i].set_title(nme[i])
@@ -161,9 +201,9 @@ if 0:  # run a number of training episodes and plot the training time and episod
 
     plt.show()
 
-game.render("moves")
-game.play(model, start_cell=(0, 0))
+game.render(Render.MOVES)
+# game.play(model, start_cell=(0, 0))
 # game.play(model, start_cell=(2, 5))
-# game.play(model, start_cell=(4, 1))
+game.play(model, start_cell=(4, 1))
 
 plt.show()  # must be placed here else the image disappears immediately at the end of the program

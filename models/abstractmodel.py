@@ -16,7 +16,7 @@ class AbstractModel(ABC):
         """ Save model to file. """
         pass
 
-    def train(self, stop_at_convergence, **kwargs):
+    def train(self, stop_at_convergence=False, **kwargs):
         """ Train model. """
         pass
 

@@ -4,6 +4,7 @@ from datetime import datetime
 
 import numpy as np
 
+from environment import Status
 from models import AbstractModel
 
 
@@ -18,17 +19,24 @@ class QTableTraceModel(AbstractModel):
         To speed up learning the model keeps track of the (state, action) pairs which have been visited before and
         also updates their values based on the current reward (a.k.a. eligibility trace). With every step the amount
         in which previous values are updated decays.
-
-        :param class Maze game: Maze game object.
     """
+    default_check_convergence_every = 5  # by default check for convergence every # episodes
 
     def __init__(self, game, **kwargs):
+        """ Create a new prediction model for 'game'.
+
+        :param class Maze game: Maze game object
+        :param kwargs: model dependent init parameters
+        """
         super().__init__(game, **kwargs)
         self.Q = dict()  # table with value per (state, action) combination
 
     def train(self, stop_at_convergence=False, **kwargs):
-        """ Hyperparameters:
+        """ Train the model.
 
+            :param stop_at_convergence: stop training as soon as convergence is reached
+
+            Hyperparameters:
             :keyword float discount: (gamma) preference for future rewards (0 = not at all, 1 = only)
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword float exploration_decay: exploration rate reduction after each random step (<= 1, 1 = no at all)
@@ -42,7 +50,8 @@ class QTableTraceModel(AbstractModel):
         exploration_decay = kwargs.get("exploration_decay", 0.995)  # % reduction per step = 100 - exploration decay
         learning_rate = kwargs.get("learning_rate", 0.10)
         eligibility_decay = kwargs.get("eligibility_decay", 0.80)  # = 20% reduction
-        episodes = kwargs.get("episodes", 1000)
+        episodes = max(kwargs.get("episodes", 1000), 1)
+        check_convergence_every = kwargs.get("check_convergence_every", self.default_check_convergence_every)
 
         # variables for reporting purposes
         cumulative_reward = 0
@@ -52,6 +61,7 @@ class QTableTraceModel(AbstractModel):
         start_list = list()
         start_time = datetime.now()
 
+        # training starts here
         for episode in range(1, episodes + 1):
             # optimization: make sure to start from all possible cells
             if not start_list:
@@ -95,7 +105,7 @@ class QTableTraceModel(AbstractModel):
                 for key in etrace.keys():
                     etrace[key] *= (discount * eligibility_decay)
 
-                if status in ("win", "lose"):  # terminal state reached, stop episode
+                if status in (Status.WIN, Status.LOSE):  # terminal state reached, stop episode
                     break
 
                 state = next_state
@@ -105,12 +115,12 @@ class QTableTraceModel(AbstractModel):
             cumulative_reward_history.append(cumulative_reward)
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
-                         .format(episode, episodes, status, exploration_rate))
+                         .format(episode, episodes, status.name, exploration_rate))
 
-            if episode % 5 == 0:
-                # check if the current model wins from all starting cells
-                # can only do this if there is a finite number of starting states
-                w_all, win_rate = self.environment.win_all(self)
+            if episode % check_convergence_every == 0:
+                # check if the current model does win from all starting cells
+                # only possible if there is a finite number of starting states
+                w_all, win_rate = self.environment.check_win_all(self)
                 win_history.append((episode, win_rate))
                 if w_all is True and stop_at_convergence is True:
                     logging.info("won from all start cells, stop learning")
@@ -133,8 +143,8 @@ class QTableTraceModel(AbstractModel):
         """ Policy: choose the action with the highest value from the Q-table.
             Random choice if multiple actions have the same (max) value.
 
-            :param np.ndarray state: Game state.
-            :return int: Chosen action.
+            :param np.ndarray state: game state
+            :return int: selected action
         """
         q = self.q(state)
 

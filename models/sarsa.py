@@ -4,6 +4,7 @@ from datetime import datetime
 
 import numpy as np
 
+from environment import Status
 from models import AbstractModel
 
 
@@ -14,17 +15,24 @@ class SarsaTableModel(AbstractModel):
         The key for this table is (state + action). Initially all values are 0. When playing training games
         after every move the value in the table is updated based on the reward gained after making the move. Training
         ends after a fixed number of games, or earlier if a stopping criterion is reached (here: a 100% win rate).
-
-        :param class Maze game: Maze game object.
     """
+    default_check_convergence_every = 5  # by default check for convergence every # episodes
 
     def __init__(self, game, **kwargs):
+        """ Create a new prediction model for 'game'.
+
+        :param class Maze game: Maze game object
+        :param kwargs: model dependent init parameters
+        """
         super().__init__(game, **kwargs)
         self.Q = dict()  # table with value per (state, action) combination
 
     def train(self, stop_at_convergence=False, **kwargs):
-        """ Hyperparameters:
+        """ Train the model.
 
+            :param stop_at_convergence: stop training as soon as convergence is reached
+
+            Hyperparameters:
             :keyword float discount: (gamma) preference for future rewards (0 = not at all, 1 = only)
             :keyword float exploration_rate: (epsilon) 0 = preference for exploring (0 = not at all, 1 = only)
             :keyword float exploration_decay: exploration rate reduction after each random step (<= 1, 1 = no at all)
@@ -36,7 +44,8 @@ class SarsaTableModel(AbstractModel):
         exploration_rate = kwargs.get("exploration_rate", 0.10)
         exploration_decay = kwargs.get("exploration_decay", 0.995)  # % reduction per step = 100 - exploration decay
         learning_rate = kwargs.get("learning_rate", 0.10)
-        episodes = kwargs.get("episodes", 1000)
+        episodes = max(kwargs.get("episodes", 1000), 1)
+        check_convergence_every = kwargs.get("check_convergence_every", self.default_check_convergence_every)
 
         # variables for reporting purposes
         cumulative_reward = 0
@@ -46,6 +55,7 @@ class SarsaTableModel(AbstractModel):
         start_list = list()
         start_time = datetime.now()
 
+        # training starts here
         for episode in range(1, episodes + 1):
             # optimization: make sure to start from all possible cells
             if not start_list:
@@ -76,7 +86,7 @@ class SarsaTableModel(AbstractModel):
 
                 self.Q[(state, action)] += learning_rate * (reward + discount * next_Q - self.Q[(state, action)])
 
-                if status in ("win", "lose"):  # terminal state reached, stop training episode
+                if status in (Status.WIN, Status.LOSE):  # terminal state reached, stop training episode
                     break
 
                 state = next_state
@@ -87,12 +97,12 @@ class SarsaTableModel(AbstractModel):
             cumulative_reward_history.append(cumulative_reward)
 
             logging.info("episode: {:d}/{:d} | status: {:4s} | e: {:.5f}"
-                         .format(episode, episodes, status, exploration_rate))
+                         .format(episode, episodes, status.name, exploration_rate))
 
-            if episode % 5 == 0:
-                # check if the current model wins from all starting cells
-                # can only do this if there is a finite number of starting states
-                w_all, win_rate = self.environment.win_all(self)
+            if episode % check_convergence_every == 0:
+                # check if the current model does win from all starting cells
+                # only possible if there is a finite number of starting states
+                w_all, win_rate = self.environment.check_win_all(self)
                 win_history.append((episode, win_rate))
                 if w_all is True and stop_at_convergence is True:
                     logging.info("won from all start cells, stop learning")
@@ -115,8 +125,8 @@ class SarsaTableModel(AbstractModel):
         """ Policy: choose the action with the highest value from the Q-table.
             Random choice if multiple actions have the same (max) value.
 
-            :param np.ndarray state: Game state.
-            :return int: Chosen action.
+            :param np.ndarray state: game state
+            :return int: selected action
         """
         q = self.q(state)
 
