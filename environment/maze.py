@@ -299,6 +299,9 @@ class Maze:
 
         :param class AbstractModel model: the prediction model to use
         """
+        def clip(n):
+            return max(min(1, n), 0)
+
         if self.__render == Render.TRAINING:
             nrows, ncols = self.maze.shape
 
@@ -327,7 +330,10 @@ class Maze:
                     if action == Action.MOVE_DOWN:
                         dy = 0.2
 
-                    self.__ax2.arrow(*cell, dx, dy, head_width=0.2, head_length=0.1)
+                    # color (red to green) represents the certainty
+                    color = clip((q[action] - -1)/(1 - -1))
+
+                    self.__ax2.arrow(*cell, dx, dy, color=(1 - color, color, 0), head_width=0.2, head_length=0.1)
 
             self.__ax2.imshow(self.maze, cmap="binary")
             self.__ax2.get_figure().canvas.draw()
