@@ -28,7 +28,7 @@ class QTableTraceModel(AbstractModel):
         :param class Maze game: Maze game object
         :param kwargs: model dependent init parameters
         """
-        super().__init__(game, **kwargs)
+        super().__init__(game, name="QTableTraceModel", **kwargs)
         self.Q = dict()  # table with value per (state, action) combination
 
     def train(self, stop_at_convergence=False, **kwargs):
@@ -70,7 +70,7 @@ class QTableTraceModel(AbstractModel):
             start_list.remove(start_cell)
 
             state = self.environment.reset(start_cell)
-            state = tuple(state.flatten())  # change np.ndarray to tuple so it can be used as dictionary key
+            state = tuple(state.flatten())  # change np.ndarray to tuple, so it can be used as dictionary key
 
             etrace = dict()
 

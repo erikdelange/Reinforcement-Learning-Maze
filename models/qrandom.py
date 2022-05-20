@@ -8,11 +8,11 @@ from models import AbstractModel
 class RandomModel(AbstractModel):
     """ Prediction model which randomly chooses the next action. """
 
-    def __init__(self, game):
-        super().__init__(game)
+    def __init__(self, game, **kwargs):
+        super().__init__(game, name="RandomModel", **kwargs)
 
     def q(self, state):
-        """ Return Q value for all action for a certain state.
+        """ Return Q value for all actions for a certain state.
 
             :return np.ndarray: Q values
         """

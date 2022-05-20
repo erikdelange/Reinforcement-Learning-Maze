@@ -24,7 +24,7 @@ class QTableModel(AbstractModel):
         :param class Maze game: Maze game object
         :param kwargs: model dependent init parameters
         """
-        super().__init__(game, **kwargs)
+        super().__init__(game, name="QTableModel", **kwargs)
         self.Q = dict()  # table with value for (state, action) combination
 
     def train(self, stop_at_convergence=False, **kwargs):

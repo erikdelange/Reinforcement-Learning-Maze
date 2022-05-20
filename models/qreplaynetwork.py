@@ -58,7 +58,7 @@ class ExperienceReplay:
         :return np.array: input and target vectors
         """
         mem_size = len(self.memory)  # how many episodes are currently stored
-        sample_size = min(mem_size, sample_size)  # cannot take more samples then available in memory
+        sample_size = min(mem_size, sample_size)  # cannot take more samples than available in memory
         state_size = self.memory[0][0].size
         num_actions = self.model.output_shape[-1]  # number of actions in output layer
 
@@ -95,7 +95,7 @@ class QReplayNetworkModel(AbstractModel):
         :param class Maze game: maze game object
         :param kwargs: model dependent init parameters
         """
-        super().__init__(game, **kwargs)
+        super().__init__(game, name="QReplayNetworkModel", **kwargs)
 
         if kwargs.get("load", False) is False:
             self.model = Sequential()

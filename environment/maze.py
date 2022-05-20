@@ -46,7 +46,7 @@ class Maze:
         The cells in the maze are stored as (col, row) or (x, y) tuples. (0, 0) is the upper left corner of the maze.
         This way of storing coordinates is in line with what matplotlib's plot() function expects as inputs. The maze
         itself is stored as a 2D numpy array so cells are accessed via [row, col]. To convert a (col, row) tuple
-        to (row, col) use: (col, row)[::-1]
+        to (row, col) use (col, row)[::-1]
     """
     actions = [Action.MOVE_LEFT, Action.MOVE_RIGHT, Action.MOVE_UP, Action.MOVE_DOWN]  # all possible actions
 
@@ -78,7 +78,7 @@ class Maze:
         if self.maze[self.__exit_cell[::-1]] == Cell.OCCUPIED:
             raise Exception("Error: exit cell at {} is not free".format(self.__exit_cell))
 
-        # Variables for rendering
+        # Variables for rendering using Matplotlib
         self.__render = Render.NOTHING  # what to render
         self.__ax1 = None  # axes for rendering the moves
         self.__ax2 = None  # axes for rendering the best action per cell
@@ -243,7 +243,7 @@ class Maze:
         if self.__current_cell == self.__exit_cell:
             return Status.WIN
 
-        if self.__total_reward < self.__minimum_reward:  # force end of game after to much loss
+        if self.__total_reward < self.__minimum_reward:  # force end of game after too much loss
             return Status.LOSE
 
         return Status.PLAYING
@@ -299,6 +299,7 @@ class Maze:
 
         :param class AbstractModel model: the prediction model to use
         """
+
         def clip(n):
             return max(min(1, n), 0)
 
@@ -330,8 +331,10 @@ class Maze:
                     if action == Action.MOVE_DOWN:
                         dy = 0.2
 
-                    # color (red to green) represents the certainty
-                    color = clip((q[action] - -1)/(1 - -1))
+                    # color (from red to green) represents the certainty of the preferred action(s)
+                    maxv = 1
+                    minv = -1
+                    color = clip((q[action] - minv) / (maxv - minv))  # normalize in [-1, 1]
 
                     self.__ax2.arrow(*cell, dx, dy, color=(1 - color, color, 0), head_width=0.2, head_length=0.1)
 
